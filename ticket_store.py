@@ -17,6 +17,7 @@ def add_ticket(
     ai_cat: str | None,
     final_cat: str | None,
     message_id: int | None = None,
+    reply_to: dict | None = None,
 ) -> dict:
     """Add a new ticket and return it."""
     ticket = {
@@ -31,6 +32,7 @@ def add_ticket(
         "ai_cat": ai_cat,
         "final_cat": final_cat,
         "created_at": datetime.now(),
+        "reply_to": reply_to,
         "resolved": False,
     }
     with _lock:

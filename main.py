@@ -92,6 +92,7 @@ def console_worker():
         rule_cat = item["rule_cat"]
         ai_cat = item["ai_cat"]
         message_id = item["message_id"]
+        reply_to = item["reply_to"]
         print(
             format_incoming(chat_title, sender, text, ts, rule_cat, ai_cat), flush=True
         )
@@ -110,7 +111,14 @@ def console_worker():
         time_str = ts.astimezone(utc_plus_5).strftime("%Y-%m-%d %H:%M:%S")
         if sender != "Sagyn":
             status, ticket_id = generate_new_ticket(
-                chat_id, sender, text, time_str, rule_cat, ai_cat, final
+                chat_id,
+                sender,
+                text,
+                time_str,
+                rule_cat,
+                ai_cat,
+                final,
+                reply_to=reply_to,
             )
         else:
             status = 0
@@ -129,13 +137,18 @@ def console_worker():
                 ai_cat=ai_cat,
                 final_cat=final,
                 message_id=message_id,
+                reply_to=reply_to,
             )
         if status == 1:
             print("продолжение существующего тикета", flush=True)
-            unresolve_ticket(int(ticket_id))
         if status == 3:
             print("решение существующего тикета", flush=True)
             resolve_ticket(int(ticket_id))
+        if status == 4:
+            print("переоткрытие тикета", flush=True)
+            unresolve_ticket(int(ticket_id))
+        print("Текущие тикеты:", flush=True)
+        print(get_tickets(chat_id=chat_id))
         add_message(
             chat_id=chat_id,
             chat_title=chat_title,
@@ -146,6 +159,7 @@ def console_worker():
             ai_cat=ai_cat,
             message_id=message_id,
             final_cat=final,
+            reply_to=reply_to,
         )
 
         print(
