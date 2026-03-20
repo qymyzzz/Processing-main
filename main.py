@@ -9,22 +9,26 @@ from google import genai
 from telegram import Update
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
-from classifier import CAT_KEYS, CATEGORIES, classify_gemini, classify_rule_based
+from categories import CAT_KEYS, CATEGORIES
+from classifier import classify_gemini, classify_rule_based
+from logging_config import logger
+from message_history import add_message, get_messages
+from ticket_store import (
+    add_ticket,
+    get_ticket,
+    get_tickets,
+    resolve_ticket,
+    unresolve_ticket,
+)
+from tickets import generate_new_ticket
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-logging.basicConfig(
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
-
 SEPARATOR = "─" * 60
 SEPARATOR2 = "═" * 60
 utc_plus_5 = timezone(timedelta(hours=5))
-
 
 confirm_queue: queue.Queue = queue.Queue()
 
@@ -80,13 +84,14 @@ def console_worker():
         if item is None:
             break
 
+        chat_id = item["chat_id"]
         chat_title = item["chat_title"]
         sender = item["sender"]
         text = item["text"]
         ts = item["ts"]
         rule_cat = item["rule_cat"]
         ai_cat = item["ai_cat"]
-
+        message_id = item["message_id"]
         print(
             format_incoming(chat_title, sender, text, ts, rule_cat, ai_cat), flush=True
         )
@@ -101,6 +106,47 @@ def console_worker():
         else:
             print("  Неверный ввод, введите 1, 2 или 3.", flush=True)
             continue
+
+        time_str = ts.astimezone(utc_plus_5).strftime("%Y-%m-%d %H:%M:%S")
+        if sender != "Sagyn":
+            status, ticket_id = generate_new_ticket(
+                chat_id, sender, text, time_str, rule_cat, ai_cat, final
+            )
+        else:
+            status = 0
+            ticket_id = None
+        if status == 0 or status is None:
+            print("не обращение", flush=True)
+        if status == 2:
+            print("новое обращение", flush=True)
+            add_ticket(
+                chat_id=chat_id,
+                chat_title=chat_title,
+                sender=sender,
+                text=text,
+                timestamp=time_str,
+                rule_cat=rule_cat,
+                ai_cat=ai_cat,
+                final_cat=final,
+                message_id=message_id,
+            )
+        if status == 1:
+            print("продолжение существующего тикета", flush=True)
+            unresolve_ticket(int(ticket_id))
+        if status == 3:
+            print("решение существующего тикета", flush=True)
+            resolve_ticket(int(ticket_id))
+        add_message(
+            chat_id=chat_id,
+            chat_title=chat_title,
+            sender=sender,
+            text=text,
+            timestamp=time_str,
+            rule_cat=rule_cat,
+            ai_cat=ai_cat,
+            message_id=message_id,
+            final_cat=final,
+        )
 
         print(
             format_confirmed(chat_title, sender, text, ts, rule_cat, ai_cat, final),
@@ -124,6 +170,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     chat = message.chat
     chat_title = chat.title or chat.full_name or f"Chat {chat.id}"
+    chat_id = chat.id
 
     if message.from_user:
         user = message.from_user
@@ -137,16 +184,39 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     timestamp = message.date
 
     rule_cat = classify_rule_based(text)
-    ai_cat = classify_gemini(text)
+    ai_cat = None  # classify_gemini(text)
+    message_id = message.message_id
 
+    reply_to = None
+    if message.reply_to_message:
+        replied = message.reply_to_message
+        if replied.from_user:
+            reply_sender = (
+                replied.from_user.full_name
+                or replied.from_user.username
+                or f"User {replied.from_user.id}"
+            )
+        elif replied.sender_chat:
+            reply_sender = replied.sender_chat.title or f"Chat {replied.sender_chat.id}"
+        else:
+            reply_sender = "Неизвестный"
+
+        reply_to = {
+            "message_id": replied.message_id,
+            "sender": reply_sender,
+            "text": replied.text or replied.caption or "[медиа без текста]",
+        }
     confirm_queue.put(
         {
+            "chat_id": chat_id,
             "chat_title": chat_title,
             "sender": sender,
             "text": text,
             "ts": timestamp,
             "rule_cat": rule_cat,
             "ai_cat": ai_cat,
+            "message_id": message_id,
+            "reply_to": reply_to,
         }
     )
 
