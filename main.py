@@ -147,8 +147,8 @@ def console_worker():
         if status == 4:
             print("переоткрытие тикета", flush=True)
             unresolve_ticket(int(ticket_id))
-        print("Текущие тикеты:", flush=True)
-        print(get_tickets(chat_id=chat_id))
+        # print("Текущие тикеты:", flush=True)
+        # print(get_tickets(chat_id=chat_id))
         add_message(
             chat_id=chat_id,
             chat_title=chat_title,

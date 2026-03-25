@@ -28,9 +28,9 @@ def generate_new_ticket(
     final_cat: str,
     reply_to: dict | None = None,
 ) -> str:
-    raw_tickets = get_tickets(chat_id=chat_id, resolved=False)
+    raw_tickets = get_tickets(chat_id=chat_id)
 
-    exclude = {"message_id", "chat_id", "chat_title", "created_at", "resolved"}
+    exclude = {"message_id", "chat_id", "chat_title", "created_at"}
     cleaned_tickets = []
     for t in raw_tickets:
         ticket = {k: v for k, v in t.items() if k not in exclude}
@@ -39,6 +39,8 @@ def generate_new_ticket(
 
         if ticket.get("reply_to") and "text" in ticket["reply_to"]:
             ticket["reply_to"]["text"] = sanitize(ticket["reply_to"]["text"])
+            if "message_id" in ticket["reply_to"]:
+                del ticket["reply_to"]["message_id"]
         cleaned_tickets.append(ticket)
 
     # print(cleaned_tickets, flush=True)
@@ -65,10 +67,10 @@ def generate_new_ticket(
 
         if new_msg.get("reply_to") and "text" in new_msg["reply_to"]:
             new_msg["reply_to"]["text"] = sanitize(new_msg["reply_to"]["text"])
-
+            if "message_id" in new_msg["reply_to"]:
+                del new_msg["reply_to"]["message_id"]
         cleaned_list.append(new_msg)
     history_json = json.dumps(cleaned_list, ensure_ascii=False, indent=2)
-
     SYSTEM_PROMPT = """Ты — классификатор сообщений в чате между мерчантами и техподдержкой.
 
     Тебе будет передано:
@@ -79,11 +81,11 @@ def generate_new_ticket(
     Используй строго следующую логику:
 
     **Шаг 1. Является ли это рабочим сообщением?**
-    Рабочим сообщением НЕ являются: приветствия, прощания, подтверждения ("ок", "понял"), пустой small talk.
+    Рабочим сообщением НЕ являются: приветствия, прощания, пустой small talk.
     Если нет → status=0, ticket_id=null
 
     **Шаг 2. Является ли это решением существующего тикета?**
-    Решение — это ответ техподдержки или мерчанта, который явно закрывает проблему (например: "починили", "всё работает", "проблема решена").
+    Решение — это ответ техподдержки или мерчанта, который явно закрывает проблему (например: "спасибо", "починили", "всё работает", "проблема решена").
     Если да → status=3, ticket_id=<id тикета который решается>
 
     **Шаг 3. Является ли это повторным открытием закрытого тикета?**
@@ -116,7 +118,6 @@ def generate_new_ticket(
     reply_to_json = (
         json.dumps(
             {
-                "message_id": reply_to.get("message_id"),
                 "sender": reply_to.get("sender"),
                 "text": sanitize(reply_to["text"]),
             },
@@ -140,6 +141,20 @@ def generate_new_ticket(
         f"  reply_to: {reply_to_json if reply_to and reply_to['text'] is not None else 'null'}\n"
         f"}}"
     )
+    print(
+        f"Список тикетов: {tickets_json if cleaned_tickets else 'Тикетов нет'}\n\n"
+        f"История чата: {history_json if cleaned_list else 'История чата пуста'}\n\n"
+        f"Новое сообщение: {{\n"
+        f"  sender: {sender},\n"
+        f"  text: {sanitize(text)},\n"
+        f"  timestamp: {timestamp},\n"
+        f"  rule_cat: {rule_cat},\n"
+        f"  ai_cat: {ai_cat},\n"
+        f"  final_cat: {final_cat}\n"
+        f"  reply_to: {reply_to_json if reply_to and reply_to['text'] is not None else 'null'}\n"
+        f"}}",
+        flush=True,
+    )
     try:
         response = gemini_client.models.generate_content(
             model="gemini-3-flash-preview",
@@ -151,7 +166,7 @@ def generate_new_ticket(
         status = parsed.get("status")
         ticket_id = parsed.get("ticket_id")
 
-        if status not in {0, 1, 2, 3}:
+        if status not in {0, 1, 2, 3, 4}:
             logger.warning(f"Unexpected Gemini status: {status}")
             return None, None
 
