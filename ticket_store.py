@@ -1,6 +1,8 @@
 import threading
 from datetime import datetime
 
+from message_history import get_messages
+
 # List of new tickets detected by the AI classifier
 # Each ticket is a dict with all message fields + metadata
 _tickets: list[dict] = []
@@ -83,3 +85,16 @@ def get_ticket(ticket_id: int) -> dict | None:
             if ticket["ticket_id"] == ticket_id:
                 return dict(ticket)
     return None
+
+
+def cleanup_tickets(chat_id: int) -> None:
+    """Remove tickets whose message_id is no longer in chat history."""
+    current_messages = get_messages(chat_id)  # последние 500
+    current_ids = {m["message_id"] for m in current_messages}
+
+    with _lock:
+        _tickets[:] = [
+            t
+            for t in _tickets
+            if t["chat_id"] != chat_id or t["message_id"] in current_ids
+        ]

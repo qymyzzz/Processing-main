@@ -15,6 +15,7 @@ from logging_config import logger
 from message_history import add_message, get_messages
 from ticket_store import (
     add_ticket,
+    cleanup_tickets,
     get_ticket,
     get_tickets,
     resolve_ticket,
@@ -161,7 +162,7 @@ def console_worker():
             final_cat=final,
             reply_to=reply_to,
         )
-
+        cleanup_tickets(chat_id)
         print(
             format_confirmed(chat_title, sender, text, ts, rule_cat, ai_cat, final),
             flush=True,
