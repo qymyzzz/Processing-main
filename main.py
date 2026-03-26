@@ -140,12 +140,12 @@ def console_worker():
                 reply_to=reply_to,
             )
         if status == 1:
-            print("продолжение существующего тикета", flush=True)
+            print(f"продолжение существующего тикета {ticket_id}", flush=True)
         if status == 3:
-            print("решение существующего тикета", flush=True)
+            print(f"решение существующего тикета {ticket_id}", flush=True)
             resolve_ticket(int(ticket_id))
         if status == 4:
-            print("переоткрытие тикета", flush=True)
+            print(f"переоткрытие тикета {ticket_id}", flush=True)
             unresolve_ticket(int(ticket_id))
         # print("Текущие тикеты:", flush=True)
         # print(get_tickets(chat_id=chat_id))
