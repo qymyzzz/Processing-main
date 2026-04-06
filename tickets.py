@@ -29,8 +29,8 @@ def generate_new_ticket(
     reply_to: dict | None = None,
 ) -> str:
     raw_tickets = get_tickets(chat_id=chat_id)
-
-    exclude = {"message_id", "chat_id", "chat_title", "created_at"}
+    print(raw_tickets, flush=True)
+    exclude = {"message_id", "chat_id", "chat_title", "created_at", "assignee"}
     cleaned_tickets = []
     for t in raw_tickets:
         ticket = {k: v for k, v in t.items() if k not in exclude}
