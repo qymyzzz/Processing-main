@@ -67,7 +67,7 @@ async def tickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             tickets = get_tickets_by_date_range(
                 date_from=date_from,
                 date_to=date_to,
-                resolved=False,
+                resolved=None,
                 sender=user_username,
             )
 

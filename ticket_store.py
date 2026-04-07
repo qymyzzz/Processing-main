@@ -1,9 +1,15 @@
+import io
+import logging
+import os
 import threading
 from datetime import datetime
 
+import dotenv
 import pandas as pd
+import requests
 import xlwings as xw
 
+from logging_config import logger
 from message_history import get_messages
 
 _tickets: list[dict] = [
@@ -57,6 +63,52 @@ _lock = threading.Lock()
 wb = xw.Book("tickets.xlsx")
 sht = wb.sheets["tickets"]
 
+dotenv.load_dotenv()
+
+BUCKET_URL = os.getenv("BUCKET_URL")
+S3_KEY = os.getenv("S3_KEY")
+
+
+def _sync_to_s3():
+    """Save workbook to a buffer and upload to S3."""
+    try:
+        buf = io.BytesIO()
+        wb.save(buf)  # xlwings can save to a file-like object
+        buf.seek(0)
+        resp = requests.put(
+            f"{BUCKET_URL}/{S3_KEY}",
+            data=buf,
+            headers={
+                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            },
+        )
+        if resp.status_code == 200:
+            logger.info("tickets.xlsx synced to S3")
+        else:
+            logger.warning(f"S3 upload failed: {resp.status_code}")
+    except Exception as e:
+        logger.error(f"S3 sync error: {e}")
+
+
+def _sync_to_s3():
+    try:
+        wb.save("tickets.xlsx")  # flush xlwings changes to disk
+        with open("tickets.xlsx", "rb") as f:
+            data = f.read()
+        resp = requests.put(
+            f"{BUCKET_URL}/{S3_KEY}",
+            data=data,
+            headers={
+                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            },
+        )
+        if resp.status_code == 200:
+            logger.info("tickets.xlsx synced to S3")
+        else:
+            logger.warning(f"S3 upload failed: {resp.status_code}")
+    except Exception as e:
+        logger.error(f"S3 sync error: {e}")
+
 
 def add_ticket(
     chat_id: int,
@@ -102,6 +154,7 @@ def add_ticket(
     ]
     sht.range("A1").expand().clear_contents()
     sht.range("A1").options(index=False).value = df
+    _sync_to_s3()
     with _lock:
         _tickets.append(ticket)
     return ticket
@@ -113,6 +166,7 @@ def add_assignee(ticket_id: int, assignee: str) -> bool:
     df.loc[df["Тикет"] == ticket_id, "Ответсвтенный"] = assignee
     sht.range("A1").expand().clear_contents()
     sht.range("A1").options(index=False).value = df
+    _sync_to_s3()
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
@@ -156,6 +210,7 @@ def resolve_ticket(ticket_id: int) -> bool:
     df.loc[df["Тикет"] == ticket_id, "Статус"] = "Закрыт"
     sht.range("A1").expand().clear_contents()
     sht.range("A1").options(index=False).value = df
+    _sync_to_s3()
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
@@ -170,6 +225,7 @@ def unresolve_ticket(ticket_id: int) -> bool:
     df.loc[df["Тикет"] == ticket_id, "Статус"] = "Открыт"
     sht.range("A1").expand().clear_contents()
     sht.range("A1").options(index=False).value = df
+    _sync_to_s3()
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
