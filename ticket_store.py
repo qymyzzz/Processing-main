@@ -171,7 +171,7 @@ def add_assignee(ticket_id: int, assignee: str) -> bool:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
                 if ticket.get("assignee") is None:
-                    ticket["assignee"] = []
+                    ticket["assignee"] = [assignee]
                 if assignee not in ticket["assignee"]:
                     ticket["assignee"].append(assignee)
                 return True

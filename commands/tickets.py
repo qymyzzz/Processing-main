@@ -35,7 +35,7 @@ async def tickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_type = update.effective_chat.type  # 'private' | 'group' | 'supergroup'
     args = context.args or []
     user_id = update.effective_user.id
-    user_username = update.effective_user.username
+    user_username = update.message.from_user.username
 
     # print(chat_type, args, user_id, flush=True)
     if args:

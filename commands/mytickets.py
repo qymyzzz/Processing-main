@@ -27,7 +27,11 @@ def get_role(user_id: int) -> str:
 async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args or []
     user_id = update.effective_user.id
-    user_username = update.effective_user.username
+    user_username = (
+        update.message.from_user.username
+        or update.message.from_user.full_name
+        or f"user{user_id}"
+    )
     if get_role(user_id=user_id) != "support":
         await update.message.reply_text("⚠️ У вас нет доступа к этой команде.")
         return
@@ -76,6 +80,7 @@ async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             chat_tickets = [t for t in tickets if t["chat_id"] == chat_id]
             await send_ticket_list(update, tickets=chat_tickets)
     else:
+        print(user_username, flush=True)
         tickets = get_tickets(assignee=user_username)
         if not tickets:
             await update.message.reply_text("📭 Тикетов пока нет.")

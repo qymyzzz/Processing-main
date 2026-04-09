@@ -14,28 +14,29 @@ async def send_ticket_list(update: Update, tickets: list) -> None:
 
     lines = [
         f"📋 *Все тикеты — {chat_title}*",
-        f"Всего: *{len(tickets)}*  |  🔴 Открытых: *{len(open_tickets)}*  |  ✅ Закрытых: *{len(resolved_tickets)}*",
+        f"Всего: *{len(open_tickets)}* открытых тикетов",
     ]
 
     if open_tickets:
-        lines += [
-            "",
-            "━━━━━━━━━━━━━━━━━━━━",
-            "🔴 *ОТКРЫТЫЕ ТИКЕТЫ*",
-            "━━━━━━━━━━━━━━━━━━━━",
-        ]
         for t in open_tickets:
             lines += _format_ticket(t)
-
-    if resolved_tickets:
+    else:
         lines += [
             "",
             "━━━━━━━━━━━━━━━━━━━━",
-            "✅ *ЗАКРЫТЫЕ ТИКЕТЫ*",
+            "🔴 *ОТКРЫТЫХ ТИКЕТОВ НЕТ*",
             "━━━━━━━━━━━━━━━━━━━━",
         ]
-        for t in resolved_tickets:
-            lines += _format_ticket(t)
+
+    # if resolved_tickets:
+    #     lines += [
+    #         "",
+    #         "━━━━━━━━━━━━━━━━━━━━",
+    #         "✅ *ЗАКРЫТЫЕ ТИКЕТЫ*",
+    #         "━━━━━━━━━━━━━━━━━━━━",
+    #     ]
+    #     for t in resolved_tickets:
+    #         lines += _format_ticket(t)
 
     await _send_in_chunks(update, lines)
 
