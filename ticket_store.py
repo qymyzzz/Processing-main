@@ -2,64 +2,23 @@ import io
 import logging
 import os
 import threading
+import urllib
 from datetime import datetime
 
 import dotenv
 import pandas as pd
 import requests
 import xlwings as xw
+from telegram.ext import Application
 
 from logging_config import logger
 from message_history import get_messages
 
-_tickets: list[dict] = [
-    # {
-    #     "ticket_id": 1,
-    #     "message_id": 430,
-    #     "chat_id": -1003704201117,
-    #     "chat_title": "test5",
-    #     "sender": "qymyzzz",
-    #     "text": "не работает API",
-    #     "timestamp": "2026-04-02 15:34:33",
-    #     "rule_cat": "Интеграции",
-    #     "ai_cat": None,
-    #     "final_cat": "Интеграции",
-    #     "created_at": datetime(2026, 4, 2, 15, 34, 41, 996135),
-    #     "reply_to": None,
-    #     "resolved": False,
-    # },
-    # {
-    #     "ticket_id": 2,
-    #     "message_id": 578,
-    #     "chat_id": -1003704201117,
-    #     "chat_title": "test5",
-    #     "sender": "qymyzzz",
-    #     "text": "asdfoiasdfasd",
-    #     "timestamp": "2026-03-25 15:34:33",
-    #     "rule_cat": "Интеграции",
-    #     "ai_cat": None,
-    #     "final_cat": "Интеграции",
-    #     "created_at": datetime(2026, 3, 25, 15, 34, 41, 996135),
-    #     "reply_to": None,
-    #     "resolved": False,
-    # },
-    # {
-    #     "ticket_id": 3,
-    #     "message_id": 124,
-    #     "chat_id": -1003704201117,
-    #     "chat_title": "test5",
-    #     "sender": "qymyzzz",
-    #     "text": "asfioasfdjsd",
-    #     "timestamp": "2026-03-02 15:34:33",
-    #     "rule_cat": "Интеграции",
-    #     "ai_cat": None,
-    #     "final_cat": "Интеграции",
-    #     "created_at": datetime(2026, 3, 2, 15, 34, 41, 996135),
-    #     "reply_to": None,
-    #     "resolved": False,
-    # },
-]
+_tickets: list[dict] = []
+
 _lock = threading.Lock()
+url = "https://test-public-support-tickets.s3.eu-central-1.amazonaws.com/tickets.xlsx"
+urllib.request.urlretrieve(url, "tickets.xlsx")
 wb = xw.Book("tickets.xlsx")
 sht = wb.sheets["tickets"]
 
@@ -69,30 +28,9 @@ BUCKET_URL = os.getenv("BUCKET_URL")
 S3_KEY = os.getenv("S3_KEY")
 
 
-def _sync_to_s3():
-    """Save workbook to a buffer and upload to S3."""
+async def s3_load_tickets(app: Application) -> None:
     try:
-        buf = io.BytesIO()
-        wb.save(buf)  # xlwings can save to a file-like object
-        buf.seek(0)
-        resp = requests.put(
-            f"{BUCKET_URL}/{S3_KEY}",
-            data=buf,
-            headers={
-                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            },
-        )
-        if resp.status_code == 200:
-            logger.info("tickets.xlsx synced to S3")
-        else:
-            logger.warning(f"S3 upload failed: {resp.status_code}")
-    except Exception as e:
-        logger.error(f"S3 sync error: {e}")
-
-
-def _sync_to_s3():
-    try:
-        wb.save("tickets.xlsx")  # flush xlwings changes to disk
+        wb.save("tickets.xlsx")
         with open("tickets.xlsx", "rb") as f:
             data = f.read()
         resp = requests.put(
@@ -107,7 +45,27 @@ def _sync_to_s3():
         else:
             logger.warning(f"S3 upload failed: {resp.status_code}")
     except Exception as e:
-        logger.error(f"S3 sync error: {e}")
+        print(f"Failed to upload to S3: {e}")
+
+
+def s3_load_tickets_sync():
+    try:
+        wb.save("tickets.xlsx")
+        with open("tickets.xlsx", "rb") as f:
+            data = f.read()
+        resp = requests.put(
+            f"{BUCKET_URL}/{S3_KEY}",
+            data=data,
+            headers={
+                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            },
+        )
+        if resp.status_code == 200:
+            logger.info("tickets.xlsx synced to S3")
+        else:
+            logger.warning(f"S3 upload failed: {resp.status_code}")
+    except Exception as e:
+        print(f"Failed to upload to S3: {e}")
 
 
 def add_ticket(
@@ -125,7 +83,7 @@ def add_ticket(
 ) -> dict:
     """Add a new ticket and return it."""
     ticket = {
-        "ticket_id": len(_tickets) + 1,  # simple incrementing ID
+        "ticket_id": len(_tickets) + 1,
         "message_id": message_id,
         "chat_id": chat_id,
         "chat_title": chat_title,
@@ -154,7 +112,6 @@ def add_ticket(
     ]
     sht.range("A1").expand().clear_contents()
     sht.range("A1").options(index=False).value = df
-    _sync_to_s3()
     with _lock:
         _tickets.append(ticket)
     return ticket
@@ -166,7 +123,6 @@ def add_assignee(ticket_id: int, assignee: str) -> bool:
     df.loc[df["Тикет"] == ticket_id, "Ответсвтенный"] = assignee
     sht.range("A1").expand().clear_contents()
     sht.range("A1").options(index=False).value = df
-    _sync_to_s3()
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
@@ -210,7 +166,6 @@ def resolve_ticket(ticket_id: int) -> bool:
     df.loc[df["Тикет"] == ticket_id, "Статус"] = "Закрыт"
     sht.range("A1").expand().clear_contents()
     sht.range("A1").options(index=False).value = df
-    _sync_to_s3()
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
@@ -225,7 +180,6 @@ def unresolve_ticket(ticket_id: int) -> bool:
     df.loc[df["Тикет"] == ticket_id, "Статус"] = "Открыт"
     sht.range("A1").expand().clear_contents()
     sht.range("A1").options(index=False).value = df
-    _sync_to_s3()
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
@@ -245,7 +199,7 @@ def get_ticket(ticket_id: int) -> dict | None:
 
 def cleanup_tickets(chat_id: int) -> None:
     """Remove tickets whose message_id is no longer in chat history."""
-    current_messages = get_messages(chat_id)  # последние 500
+    current_messages = get_messages(chat_id)
     current_ids = {m["message_id"] for m in current_messages}
 
     with _lock:
@@ -265,7 +219,6 @@ def get_tickets_by_date_range(
     assignee: list | None = None,
 ) -> list[dict]:
     """Return tickets for a chat between date_from and date_to (inclusive)."""
-    # print("these dates:", date_from, date_to)
     with _lock:
         return [
             t

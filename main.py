@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import queue
+import signal
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -31,6 +32,7 @@ from logging_config import logger
 from message_history import add_message, get_messages
 from reminder import send_unresolved_reminder
 from send_tickets_group import send_ticket_list
+from shutdown import handle_shutdown
 from ticket_store import (
     add_assignee,
     add_ticket,
@@ -39,16 +41,17 @@ from ticket_store import (
     get_tickets,
     get_tickets_by_date_range,
     resolve_ticket,
+    s3_load_tickets,
     unresolve_ticket,
 )
-from tickets import generate_new_ticket
+from tickets import flush_retry_queue, generate_new_ticket
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 SUPPORT_IDS = os.getenv("SUPPORT_IDS").split(",")
 REMINDER_INTERVAL = os.getenv("REMINDER_INTERVAL")  # in seconds, e.g. 18000 for 5 hours
-
+S3_SYNC_INTERVAL_SECONDS = int(os.getenv("S3_SYNC_INTERVAL_MINUTES")) * 60
 
 SEPARATOR = "─" * 60
 SEPARATOR2 = "═" * 60
@@ -115,6 +118,8 @@ def console_worker():
         if item is None:
             break
 
+        flush_retry_queue()
+
         user_id = item["user_id"]
         chat_id = item["chat_id"]
         chat_title = item["chat_title"]
@@ -129,16 +134,17 @@ def console_worker():
             format_incoming(chat_title, sender, text, ts, rule_cat, ai_cat), flush=True
         )
 
-        try:
-            raw = input("\n> ").strip()
-        except EOFError:
-            raw = ""
+        # try:
+        #     raw = input("\n> ").strip()
+        # except EOFError:
+        #     raw = ""
 
-        if raw in ("1", "2", "3"):
-            final = CAT_KEYS[int(raw) - 1]
-        else:
-            print("  Неверный ввод, введите 1, 2 или 3.", flush=True)
-            continue
+        # if raw in ("1", "2", "3"):
+        #     final = CAT_KEYS[int(raw) - 1]
+        # else:
+        #     print("  Неверный ввод, введите 1, 2 или 3.", flush=True)
+        #     continue
+        final = rule_cat
         time_str = ts.astimezone(utc_plus_5).strftime("%Y-%m-%d %H:%M:%S")
         if (
             not text.startswith("/tickets")
@@ -365,8 +371,11 @@ def main():
     app.add_handler(CommandHandler("mytickets", mytickets))
     logger.info("Bot is running — press Ctrl+C to stop.")
     app.job_queue.run_repeating(send_unresolved_reminder, interval=30000)
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.job_queue.run_repeating(s3_load_tickets, interval=S3_SYNC_INTERVAL_SECONDS)
+    try:
+        app.run_polling(allowed_updates=Update.ALL_TYPES)
+    finally:
+        handle_shutdown()
 
 
 if __name__ == "__main__":
