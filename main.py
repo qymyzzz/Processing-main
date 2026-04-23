@@ -7,7 +7,6 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
-import xlwings as xw
 from dotenv import load_dotenv
 from google import genai
 from telegram import Update
@@ -34,6 +33,7 @@ from reminder import send_unresolved_reminder
 from send_tickets_group import send_ticket_list
 from shutdown import handle_shutdown
 from ticket_store import (
+    _init_excel,
     add_assignee,
     add_ticket,
     cleanup_tickets,
@@ -50,7 +50,9 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 SUPPORT_IDS = os.getenv("SUPPORT_IDS").split(",")
-REMINDER_INTERVAL = os.getenv("REMINDER_INTERVAL")  # in seconds, e.g. 18000 for 5 hours
+REMINDER_INTERVAL = int(
+    os.getenv("REMINDER_INTERVAL")
+)  # in seconds, e.g. 18000 for 5 hours
 S3_SYNC_INTERVAL_SECONDS = int(os.getenv("S3_SYNC_INTERVAL_MINUTES")) * 60
 
 SEPARATOR = "─" * 60
@@ -81,30 +83,7 @@ def format_incoming(chat_title, sender, text, timestamp, rule_cat, ai_cat):
         f"Время:      {time_str}\n"
         f"Сообщение:  {text}\n"
         f"Rule-based: {CATEGORIES[rule_cat]} {rule_cat}\n"
-        f"Gemini:     {CATEGORIES.get(ai_cat, '❓')} {ai_cat or '—'}\n"
-        f"{SEPARATOR}\n"
-        f"  Категория: 1=Операционная  2=Инциденты  3=Интеграции"
     )
-
-
-def format_confirmed(chat_title, sender, text, timestamp, rule_cat, ai_cat, final):
-    time_str = timestamp.astimezone(utc_plus_5).strftime("%Y-%m-%d %H:%M:%S")
-    both_match = rule_cat == ai_cat == final
-    lines = [
-        f"\n{SEPARATOR2}",
-        f"Чат:        {chat_title}",
-        f"От:         {sender}",
-        f"Время:      {time_str}",
-        f"Сообщение:  {text}",
-        f"Итог:       {CATEGORIES[final]} {final}",
-    ]
-    if both_match:
-        lines.append("✅ оба классификатора верны")
-    else:
-        lines.append(f"⚠️  Rule-based: {CATEGORIES[rule_cat]} {rule_cat}")
-        lines.append(f"⚠️  Gemini:     {CATEGORIES.get(ai_cat, '❓')} {ai_cat or '—'}")
-    lines.append(SEPARATOR2)
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -130,20 +109,7 @@ def console_worker():
         ai_cat = item["ai_cat"]
         message_id = item["message_id"]
         reply_to = item["reply_to"]
-        print(
-            format_incoming(chat_title, sender, text, ts, rule_cat, ai_cat), flush=True
-        )
-
-        # try:
-        #     raw = input("\n> ").strip()
-        # except EOFError:
-        #     raw = ""
-
-        # if raw in ("1", "2", "3"):
-        #     final = CAT_KEYS[int(raw) - 1]
-        # else:
-        #     print("  Неверный ввод, введите 1, 2 или 3.", flush=True)
-        #     continue
+        logger.info(format_incoming(chat_title, sender, text, ts, rule_cat, ai_cat))
         final = rule_cat
         time_str = ts.astimezone(utc_plus_5).strftime("%Y-%m-%d %H:%M:%S")
         if (
@@ -151,7 +117,6 @@ def console_worker():
             and not text.startswith("/close")
             and not text.startswith("/report")
         ):
-            # if get_role(sender) == "client":
             status, ticket_id = generate_new_ticket(
                 chat_id,
                 sender,
@@ -162,15 +127,10 @@ def console_worker():
                 final,
                 reply_to=reply_to,
             )
-            # status = 2
-            # ticket_id = None
-            # else:
-            #     status = 0
-            #     ticket_id = None
             if status == 0 or status is None:
-                print("не обращение", flush=True)
+                logger.info("не обращение")
             if status == 2:
-                print("новое обращение", flush=True)
+                logger.info("новое обращение")
                 add_ticket(
                     chat_id=chat_id,
                     chat_title=chat_title,
@@ -186,15 +146,13 @@ def console_worker():
             if status == 1:
                 if get_role(user_id=user_id) == "support":
                     add_assignee(ticket_id, sender)
-                print(f"продолжение существующего тикета {ticket_id}", flush=True)
+                logger.info(f"продолжение существующего тикета {ticket_id}")
             if status == 3:
-                print(f"решение существующего тикета {ticket_id}", flush=True)
+                logger.info(f"решение существующего тикета {ticket_id}")
                 resolve_ticket(int(ticket_id))
             if status == 4:
-                print(f"переоткрытие тикета {ticket_id}", flush=True)
+                logger.info(f"переоткрытие тикета {ticket_id}")
                 unresolve_ticket(int(ticket_id))
-        # print("Текущие тикеты:", flush=True)
-        # print(get_tickets(chat_id=chat_id))
         add_message(
             chat_id=chat_id,
             chat_title=chat_title,
@@ -208,10 +166,6 @@ def console_worker():
             reply_to=reply_to,
         )
         cleanup_tickets(chat_id)
-        print(
-            format_confirmed(chat_title, sender, text, ts, rule_cat, ai_cat, final),
-            flush=True,
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +313,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def main():
+    _init_excel()
     worker = threading.Thread(target=console_worker, daemon=True)
     worker.start()
     app = Application.builder().token(BOT_TOKEN).build()
@@ -370,7 +325,7 @@ def main():
     app.add_handler(CommandHandler("duty", duty))
     app.add_handler(CommandHandler("mytickets", mytickets))
     logger.info("Bot is running — press Ctrl+C to stop.")
-    app.job_queue.run_repeating(send_unresolved_reminder, interval=30000)
+    app.job_queue.run_repeating(send_unresolved_reminder, interval=REMINDER_INTERVAL)
     app.job_queue.run_repeating(s3_load_tickets, interval=S3_SYNC_INTERVAL_SECONDS)
     try:
         app.run_polling(allowed_updates=Update.ALL_TYPES)

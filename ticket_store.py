@@ -8,29 +8,34 @@ from datetime import datetime
 import dotenv
 import pandas as pd
 import requests
-import xlwings as xw
 from telegram.ext import Application
 
 from logging_config import logger
 from message_history import get_messages
-
-_tickets: list[dict] = []
-
-_lock = threading.Lock()
-url = "https://test-public-support-tickets.s3.eu-central-1.amazonaws.com/tickets.xlsx"
-urllib.request.urlretrieve(url, "tickets.xlsx")
-wb = xw.Book("tickets.xlsx")
-sht = wb.sheets["tickets"]
 
 dotenv.load_dotenv()
 
 BUCKET_URL = os.getenv("BUCKET_URL")
 S3_KEY = os.getenv("S3_KEY")
 
+_tickets: list[dict] = []
+
+_lock = threading.Lock()
+
+
+# Initialize Excel on first access
+def _init_excel():
+    url = f"{BUCKET_URL}/{S3_KEY}"
+    try:
+        urllib.request.urlretrieve(url, "tickets.xlsx")
+        logger.info("tickets.xlsx downloaded from S3")
+    except Exception as e:
+        logger.error(f"Failed to load tickets.xlsx: {e}")
+        raise
+
 
 async def s3_load_tickets(app: Application) -> None:
     try:
-        wb.save("tickets.xlsx")
         with open("tickets.xlsx", "rb") as f:
             data = f.read()
         resp = requests.put(
@@ -50,7 +55,6 @@ async def s3_load_tickets(app: Application) -> None:
 
 def s3_load_tickets_sync():
     try:
-        wb.save("tickets.xlsx")
         with open("tickets.xlsx", "rb") as f:
             data = f.read()
         resp = requests.put(
@@ -99,19 +103,23 @@ def add_ticket(
         "assignee": assignee or [],
     }
     id = len(get_tickets()) + 1
-    df = sht.range("A1").expand().options(pd.DataFrame, index=False).value
-    df.loc[len(df)] = [
-        id,
-        chat_title,
-        sender,
-        text,
-        rule_cat,
-        timestamp,
-        "Никто",
-        "Открыт",
-    ]
-    sht.range("A1").expand().clear_contents()
-    sht.range("A1").options(index=False).value = df
+    df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
+    new_row = pd.DataFrame(
+        [
+            {
+                "Тикет": id,
+                "Чат": chat_title,
+                "Отправитель": sender,
+                "Сообщение": text,
+                "Категория": rule_cat,
+                "Дата": timestamp,
+                "Ответсвтенный": "Никто",
+                "Статус": "Открыт",
+            }
+        ]
+    )
+    df = pd.concat([df, new_row], ignore_index=True)
+    df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
     with _lock:
         _tickets.append(ticket)
     return ticket
@@ -119,10 +127,9 @@ def add_ticket(
 
 def add_assignee(ticket_id: int, assignee: str) -> bool:
     """Add an assignee to a ticket. Returns True if found, False otherwise."""
-    df = sht.range("A1").expand().options(pd.DataFrame, index=False).value
+    df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
     df.loc[df["Тикет"] == ticket_id, "Ответсвтенный"] = assignee
-    sht.range("A1").expand().clear_contents()
-    sht.range("A1").options(index=False).value = df
+    df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
@@ -162,10 +169,9 @@ def get_tickets(
 
 def resolve_ticket(ticket_id: int) -> bool:
     """Mark a ticket as resolved. Returns True if found, False otherwise."""
-    df = sht.range("A1").expand().options(pd.DataFrame, index=False).value
+    df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
     df.loc[df["Тикет"] == ticket_id, "Статус"] = "Закрыт"
-    sht.range("A1").expand().clear_contents()
-    sht.range("A1").options(index=False).value = df
+    df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
@@ -176,10 +182,9 @@ def resolve_ticket(ticket_id: int) -> bool:
 
 def unresolve_ticket(ticket_id: int) -> bool:
     """Unmark a ticket as resolved. Returns False if found, True otherwise."""
-    df = sht.range("A1").expand().options(pd.DataFrame, index=False).value
+    df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
     df.loc[df["Тикет"] == ticket_id, "Статус"] = "Открыт"
-    sht.range("A1").expand().clear_contents()
-    sht.range("A1").options(index=False).value = df
+    df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
     with _lock:
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
