@@ -356,8 +356,8 @@ def main():
             port=WEBHOOK_PORT,
             url_path=WEBHOOK_PATH,
             webhook_url=f"{WEBHOOK_URL}{WEBHOOK_PATH}",
-            cert=WEBHOOK_SSL_CERT,
-            key=WEBHOOK_SSL_KEY,
+            cert=WEBHOOK_SSL_CERT or None,
+            key=WEBHOOK_SSL_KEY or None,
         )
     finally:
         handle_shutdown()
