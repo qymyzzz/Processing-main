@@ -35,6 +35,7 @@ from reminder import send_unresolved_reminder
 from send_tickets_group import send_ticket_list
 from shutdown import handle_shutdown
 from ticket_store import (
+    _init_excel,
     add_assignee,
     add_ticket,
     cleanup_tickets,
@@ -325,6 +326,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def main():
+    _init_excel()
     worker = threading.Thread(target=console_worker, daemon=True)
     worker.start()
 

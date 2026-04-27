@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 import dotenv
@@ -22,3 +23,5 @@ async def run_health_server():
     site = web.TCPSite(runner, "0.0.0.0", HEALTH_PORT)
     await site.start()
     logger.info(f"Health check running on 0.0.0.0:{HEALTH_PORT}/health")
+
+    await asyncio.Event().wait()
