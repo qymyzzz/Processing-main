@@ -1,19 +1,18 @@
 import re
 
 PII_PATTERNS = [
-    (re.compile(r"\+?\d[\d\s\-\(\)]{7,}\d"), "[ТЕЛЕФОН]"),
     (re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"), "[EMAIL]"),
-    (
-        re.compile(r"\b(?:ИИН|БИН|ИНН|КПП|ОГРН)\s*:?\s*\d{9,14}\b", re.IGNORECASE),
-        "[ИД_НОМЕР]",
-    ),
-    (re.compile(r"\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b"), "[КАРТА]"),
+    (re.compile(r"https?://[^\s\"']+"), "[URL]"),
+    (re.compile(r"\b(?:0[1-9]|1[0-2])[/\-]\d{2}(?:\d{2})?\b"), "[СРОК_КАРТЫ]"),
+    (re.compile(r"\b[A-Z]{2,}(?:\s+[A-Z]{2,})+\b"), "[ВЛАДЕЛЕЦ]"),
     (
         re.compile(
-            r"(?:транзакц|платёж|invoice|счёт)\s*(?:№|#|N)?\s*\d+", re.IGNORECASE
+            r"\b\d[\d\s]*(?:\.\d{1,2})?\s*(?:тенге|тнг|kzt|руб(?:лей)?|₽|usd|\$|eur|€)\b",
+            re.IGNORECASE,
         ),
-        "[ТРАНЗАКЦИЯ]",
+        "[СУММА]",
     ),
+    (re.compile(r"\d{3,}"), "[НОМЕР]"),
 ]
 
 

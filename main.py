@@ -3,6 +3,7 @@ import logging
 import os
 import queue
 import signal
+
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -30,6 +31,7 @@ from commands.tickets import tickets
 from logging_config import logger
 from message_history import add_message, get_messages
 from reminder import send_unresolved_reminder
+from sanitize import sanitize
 from send_tickets_group import send_ticket_list
 from shutdown import handle_shutdown
 from ticket_store import (
@@ -81,7 +83,8 @@ def format_incoming(chat_title, sender, text, timestamp, rule_cat, ai_cat):
         f"Чат:        {chat_title}\n"
         f"От:         {sender}\n"
         f"Время:      {time_str}\n"
-        f"Сообщение:  {text}\n"
+        f"Сообщение):  {text}\n"
+        f"Сообщение (защищеннное):  {sanitize(text)}\n"
         f"Rule-based: {CATEGORIES[rule_cat]} {rule_cat}\n"
     )
 
