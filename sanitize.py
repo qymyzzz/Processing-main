@@ -1,4 +1,17 @@
 import re
+import phonenumbers
+from phonenumbers import PhoneNumberMatcher
+
+
+def label_phone_numbers(text, region=None, replacement="[НОМЕР ТЕЛЕФОНА]"):
+    matcher = list(PhoneNumberMatcher(text, region))
+    masked_text = text
+    for match in reversed(matcher):
+        start = match.start
+        end = match.end
+        masked_text = masked_text[:start] + replacement + masked_text[end:]
+
+    return masked_text
 
 
 def sanitize(text: str) -> str:
@@ -24,32 +37,6 @@ def sanitize(text: str) -> str:
     text = re.compile(r"\b[A-Z]{2,}(?:\s+[A-Z]{2,})+\b").sub("[ВЛАДЕЛЕЦ]", text)
     EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
     text = EMAIL_RE.sub("[EMAIL]", text)
-    PHONE_RE1 = re.compile(
-        r"(?<![.\d])"
-        r"\+[1-9]\d{0,3}"
-        r"[\s.\-]?"
-        r"\(?\d{1,4}\)?"
-        r"[\s.\-]?"
-        r"\d{1,4}"
-        r"[\s.\-]?"
-        r"\d{1,4}"
-        r"(?:[\s.\-]?\d{1,4})"
-        r"(?!\d)"
-    )
-
-    PHONE_RE2 = re.compile(
-        r"(?<![.\d])"
-        r"[1-9]\d{0,3}"
-        r"[\s.\-]?"
-        r"\(?\d{1,4}\)?"
-        r"[\s.\-]?"
-        r"\d{1,4}"
-        r"[\s.\-]?"
-        r"\d{1,4}"
-        r"(?:[\s.\-]?\d{1,4})"
-        r"(?!\d)"
-    )
-    text = PHONE_RE1.sub("[НОМЕР ТЕЛЕФОНА]", text)
     text = re.sub(
         r"(?<!\d)(?:CVV?2?|CVC2?|CVC|CID|security\s+code)[:\s]+(\d{3,4})(?!\d)",
         "[CVV]",
@@ -64,5 +51,5 @@ def sanitize(text: str) -> str:
     )
     text = re.sub(r"\d[\d\s-]{11,17}\d", mask_PANs, text)
     text = re.sub(r"(?<!\d)\d{12}(?!\d)", "[ИИН или БИН]", text)
-    text = PHONE_RE2.sub("[НОМЕР ТЕЛЕФОНА]", text)
+    text = label_phone_numbers(text, region="KZ", replacement="[НОМЕР ТЕЛЕФОНА]")
     return text
