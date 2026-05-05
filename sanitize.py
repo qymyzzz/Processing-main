@@ -15,22 +15,6 @@ def label_phone_numbers(text, region=None, replacement="[НОМЕР ТЕЛЕФО
 
 
 def sanitize(text: str) -> str:
-    def mask_PANs(m):
-        s = m.group()
-        digits_only = re.sub(r"[\s-]", "", s)
-        if len(digits_only) < 13 or len(digits_only) > 19:
-            return s
-
-        digits_seen = 0
-        result = []
-        for char in reversed(s):
-            if char.isdigit():
-                digits_seen += 1
-                result.append(char if digits_seen <= 4 else "*")
-            else:
-                result.append(char)
-        return "".join(reversed(result))
-
     text = re.compile(r"\b(?:0[1-9]|1[0-2])[/\-]\d{2}(?:\d{2})?\b").sub(
         "[СРОК_КАРТЫ]", text
     )
@@ -49,7 +33,19 @@ def sanitize(text: str) -> str:
         text,
         flags=re.IGNORECASE,
     )
-    text = re.sub(r"\d[\d\s-]{11,17}\d", mask_PANs, text)
-    text = re.sub(r"(?<!\d)\d{12}(?!\d)", "[ИИН или БИН]", text)
+    text = re.sub(
+        r"4[0-9]{3}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}",
+        "[VISA PAN]",
+        text,
+    )
+    text = re.sub(
+        r"(5[1-5][0-9]{2}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}|2(22[1-9][-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}|2[3-9][0-9]{1}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}|[3-6][0-9]{2}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}|7[0-1][0-9]{1}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}|720[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}[-\s]{0,2}[0-9]{4}))",
+        "[MASTERCARD PAN]",
+        text,
+    )
+    text = re.sub(
+        r"^\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[3-6]\d{4}\d$", "[ИИН]", text
+    )
+    text = re.sub(r"^\d{2}(0[1-9]|1[0-2])[4-6]\d{7}$", "[БИН]", text)
     text = label_phone_numbers(text, region="KZ", replacement="[НОМЕР ТЕЛЕФОНА]")
     return text
