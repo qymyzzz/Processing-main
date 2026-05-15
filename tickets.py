@@ -53,8 +53,6 @@ def _call_gemini_with_retry(prompt: str) -> tuple:
             time.sleep(delay)
 
     logger.error(f"Gemini failed after {MAX_RETRIES} retries, queuing request.")
-    with _retry_queue_lock:
-        _retry_queue.append(prompt)
     return None, None
 
 
@@ -79,7 +77,7 @@ def generate_new_ticket(
     reply_to: dict | None = None,
 ) -> str:
     raw_tickets = get_tickets(chat_id=chat_id)
-    print(raw_tickets, flush=True)
+    # print(raw_tickets, flush=True)
     exclude = {"message_id", "chat_id", "chat_title", "created_at", "assignee"}
     cleaned_tickets = []
     for t in raw_tickets:

@@ -80,7 +80,7 @@ async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             chat_tickets = [t for t in tickets if t["chat_id"] == chat_id]
             await send_ticket_list(update, tickets=chat_tickets)
     else:
-        print(user_username, flush=True)
+        # print(user_username, flush=True)
         tickets = get_tickets(assignee=user_username)
         if not tickets:
             await update.message.reply_text("📭 Тикетов пока нет.")

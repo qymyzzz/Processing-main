@@ -229,7 +229,7 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if get_role(user_id) != "support":
         await update.message.reply_text("⚠️ У вас нет доступа к этой команде.")
         return
-    tickets = get_tickets(sender=user_username)
+    tickets = get_tickets(assignee=user_username)
 
     if not tickets:
         await update.message.reply_text("📭 Тикетов пока нет — отчёт пуст.")

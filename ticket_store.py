@@ -113,7 +113,7 @@ def add_ticket(
                 "Сообщение": text,
                 "Категория": rule_cat,
                 "Дата": timestamp,
-                "Ответсвтенный": "Никто",
+                "Ответственный": "Никто",
                 "Статус": "Открыт",
             }
         ]
@@ -128,7 +128,7 @@ def add_ticket(
 def add_assignee(ticket_id: int, assignee: str) -> bool:
     """Add an assignee to a ticket. Returns True if found, False otherwise."""
     df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
-    df.loc[df["Тикет"] == ticket_id, "Ответсвтенный"] = assignee
+    df.loc[df["Тикет"] == ticket_id, "Ответственный"] = assignee
     df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
     with _lock:
         for ticket in _tickets:

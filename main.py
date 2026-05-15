@@ -6,6 +6,7 @@ import signal
 
 import threading
 from datetime import datetime, timedelta, timezone
+import time
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -89,6 +90,12 @@ def format_incoming(chat_title, sender, text, timestamp, rule_cat, ai_cat):
     )
 
 
+def retry_worker():
+    while True:
+        time.sleep(60)
+        flush_retry_queue()
+
+
 # ---------------------------------------------------------------------------
 # Консольный поток — читает очередь и ждёт ввода
 # ---------------------------------------------------------------------------
@@ -99,8 +106,6 @@ def console_worker():
         item = confirm_queue.get()
         if item is None:
             break
-
-        flush_retry_queue()
 
         user_id = item["user_id"]
         chat_id = item["chat_id"]
@@ -317,6 +322,8 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def main():
     _init_excel()
+    retry = threading.Thread(target=retry_worker, daemon=True)
+    retry.start()
     worker = threading.Thread(target=console_worker, daemon=True)
     worker.start()
     app = Application.builder().token(BOT_TOKEN).build()
