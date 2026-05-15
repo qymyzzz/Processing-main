@@ -3,6 +3,8 @@ import logging
 import os
 import queue
 import signal
+import asyncio
+from health_check import run_health_server
 
 import threading
 from datetime import datetime, timedelta, timezone
@@ -57,6 +59,16 @@ REMINDER_INTERVAL = int(
     os.getenv("REMINDER_INTERVAL")
 )  # in seconds, e.g. 18000 for 5 hours
 S3_SYNC_INTERVAL_SECONDS = int(os.getenv("S3_SYNC_INTERVAL_MINUTES")) * 60
+
+# Webhook settings — devops will provide these values
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # e.g. https://yourbot.company.com
+WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/webhook")
+WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8443"))
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "0.0.0.0")
+
+# Optional SSL cert paths (if devops uses self-signed certs)
+WEBHOOK_SSL_CERT = os.getenv("WEBHOOK_SSL_CERT", None)  # path to cert.pem
+WEBHOOK_SSL_KEY = os.getenv("WEBHOOK_SSL_KEY", None)  # path to key.pem
 
 SEPARATOR = "─" * 60
 SEPARATOR2 = "═" * 60
@@ -337,10 +349,37 @@ def main():
     logger.info("Bot is running — press Ctrl+C to stop.")
     app.job_queue.run_repeating(send_unresolved_reminder, interval=REMINDER_INTERVAL)
     app.job_queue.run_repeating(s3_load_tickets, interval=S3_SYNC_INTERVAL_SECONDS)
-    try:
-        app.run_polling(allowed_updates=Update.ALL_TYPES)
-    finally:
-        handle_shutdown()
+
+    use_webhook = int(os.getenv("USE_WEBHOOK", 0))
+    # print(f"Using webhook: {use_webhook}")
+    if use_webhook == 1:
+        # print("here")
+        loop = asyncio.new_event_loop()
+        health_thread = threading.Thread(
+            target=lambda: loop.run_until_complete(run_health_server()), daemon=True
+        )
+        health_thread.start()
+
+        logger.info(
+            f"Bot is running via webhook on {WEBHOOK_HOST}:{WEBHOOK_PORT}{WEBHOOK_PATH}"
+        )
+
+        try:
+            app.run_webhook(
+                listen=WEBHOOK_HOST,
+                port=WEBHOOK_PORT,
+                url_path=WEBHOOK_PATH,
+                webhook_url=f"{WEBHOOK_URL}{WEBHOOK_PATH}",
+                cert=WEBHOOK_SSL_CERT or None,
+                key=WEBHOOK_SSL_KEY or None,
+            )
+        finally:
+            handle_shutdown()
+    else:
+        try:
+            app.run_polling(allowed_updates=Update.ALL_TYPES)
+        finally:
+            handle_shutdown()
 
 
 if __name__ == "__main__":

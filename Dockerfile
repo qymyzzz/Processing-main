@@ -10,4 +10,4 @@ COPY . .
 EXPOSE 8443
 EXPOSE 8080
 
-CMD ["python", "main_webhook.py"]
+CMD ["python", "main.py"]
