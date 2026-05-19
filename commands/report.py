@@ -250,4 +250,5 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"Открытых: *{sum(1 for t in tickets if not t['resolved'])}* · "
             f"Закрытых: *{sum(1 for t in tickets if t['resolved'])}*"
         ),
-            parse_mode="MarkdownV2",
+        parse_mode="MarkdownV2",
+    )
