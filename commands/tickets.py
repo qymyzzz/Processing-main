@@ -7,6 +7,7 @@ from itertools import groupby
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ContextTypes
+from utils import escape_md
 
 from commands.start import SUPPORT_IDS
 from send_tickets_group import send_ticket_list
@@ -56,7 +57,7 @@ async def tickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "⚠️ Неверный формат даты.\n"
                 "Используйте: `/tickets ДД.ММ.ГГГГ-ДД.ММ.ГГГГ`\n"
                 "Пример: `/tickets 01.03.2026-29.03.2026`",
-                parse_mode="Markdown",
+                parse_mode="MarkdownV2",
             )
             return
         if get_role(user_id) == "support":
@@ -74,7 +75,7 @@ async def tickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not tickets:
             await update.message.reply_text(
                 f"📭 Тикетов за период *{part_from} — {part_to}* не найдено.",
-                parse_mode="Markdown",
+                parse_mode="MarkdownV2",
             )
             return
 

@@ -2,6 +2,7 @@ import io
 import os
 from datetime import datetime
 
+from utils import escape_md
 from dotenv import load_dotenv
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -249,5 +250,4 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"Открытых: *{sum(1 for t in tickets if not t['resolved'])}* · "
             f"Закрытых: *{sum(1 for t in tickets if t['resolved'])}*"
         ),
-        parse_mode="Markdown",
-    )
+            parse_mode="MarkdownV2",

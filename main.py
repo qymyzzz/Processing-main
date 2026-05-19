@@ -35,6 +35,7 @@ from logging_config import logger
 from message_history import _init_messages, add_message, get_messages, s3_load_messages
 from reminder import send_unresolved_reminder
 from sanitize import sanitize
+from utils import escape_md
 from send_tickets_group import send_ticket_list
 from shutdown import handle_shutdown
 from ticket_store import (
@@ -271,7 +272,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "⚠️ Неверный формат даты.\n"
                 "Используйте: `/tickets ДД.ММ.ГГГГ-ДД.ММ.ГГГГ`\n"
                 "Пример: `/tickets 01.03.2026-29.03.2026`",
-                parse_mode="Markdown",
+                parse_mode="MarkdownV2",
             )
             return
         tickets = get_tickets_by_date_range(
@@ -280,7 +281,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not tickets:
             await update.message.reply_text(
                 f"📭 Тикетов за период *{part_from} — {part_to}* не найдено.",
-                parse_mode="Markdown",
+                parse_mode="MarkdownV2",
             )
             return
         await send_ticket_list(update, tickets)
@@ -289,7 +290,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not arg.isdigit():
             await update.message.reply_text(
                 "⚠️ Неверный ID. Используйте: `/close <id>`\nПример: `/close 42`",
-                parse_mode="Markdown",
+                parse_mode="MarkdownV2",
             )
             return
         ticket_id = int(arg)
@@ -323,7 +324,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"Открытых: *{sum(1 for t in tickets if not t['resolved'])}* · "
                 f"Закрытых: *{sum(1 for t in tickets if t['resolved'])}*"
             ),
-            parse_mode="Markdown",
+            parse_mode="MarkdownV2",
         )
 
 

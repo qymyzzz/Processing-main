@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from telegram.ext import Application
 
+from utils import escape_md
 from ticket_store import get_tickets
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ async def send_unresolved_reminder(app: Application) -> None:
             await app.bot.send_message(
                 chat_id=user_id,
                 text=text,
-                parse_mode="Markdown",
+                parse_mode="MarkdownV2",
             )
         except Exception as e:
             logger.warning(

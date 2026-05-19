@@ -61,6 +61,7 @@ def _init_excel():
                     }
                     for row in data
                 ]
+                print(f"Loaded {_tickets} tickets from meta", flush=True)
             logger.info(f"Loaded {len(_tickets)} tickets from meta")
         urllib.request.urlretrieve(url, S3_KEY)
         logger.info(f"{S3_KEY} downloaded from S3")

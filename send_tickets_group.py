@@ -1,5 +1,6 @@
 from telegram import Update
 
+from utils import escape_md
 from ticket_store import get_tickets
 
 
@@ -88,5 +89,5 @@ async def _send_in_chunks(update: Update, lines: list[str]) -> None:
         header = f"_часть {i}/{len(chunks)}_\n" if len(chunks) > 1 else ""
         await update.message.reply_text(
             header + chunk,
-            parse_mode="Markdown",
+            parse_mode="MarkdownV2",
         )
