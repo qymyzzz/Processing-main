@@ -178,6 +178,6 @@ def generate_new_ticket(
         f"  reply_to: {reply_to_json if reply_to and reply_to['text'] is not None else 'null'}\n"
         f"}}"
     )
-    print(tickets_json, flush=True)
-    print(history_json, flush=True)
+    # print(tickets_json, flush=True)
+    # print(history_json, flush=True)
     return _call_gemini_with_retry(prompt)
