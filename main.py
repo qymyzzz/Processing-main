@@ -32,7 +32,7 @@ from commands.report import _build_excel, report
 from commands.start import start
 from commands.tickets import tickets
 from logging_config import logger
-from message_history import add_message, get_messages
+from message_history import _init_messages, add_message, get_messages, s3_load_messages
 from reminder import send_unresolved_reminder
 from sanitize import sanitize
 from send_tickets_group import send_ticket_list
@@ -334,6 +334,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def main():
     _init_excel()
+    _init_messages()
     retry = threading.Thread(target=retry_worker, daemon=True)
     retry.start()
     worker = threading.Thread(target=console_worker, daemon=True)
@@ -349,6 +350,7 @@ def main():
     logger.info("Bot is running — press Ctrl+C to stop.")
     app.job_queue.run_repeating(send_unresolved_reminder, interval=REMINDER_INTERVAL)
     app.job_queue.run_repeating(s3_load_tickets, interval=S3_SYNC_INTERVAL_SECONDS)
+    app.job_queue.run_repeating(s3_load_messages, interval=S3_SYNC_INTERVAL_SECONDS)
 
     use_webhook = int(os.getenv("USE_WEBHOOK", 0))
     # print(f"Using webhook: {use_webhook}")
