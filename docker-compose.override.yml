@@ -1,0 +1,22 @@
+# This file overrides docker-compose.yml for local development
+# It is NOT checked in to version control (.gitignore)
+# Use: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+version: '3.8'
+
+services:
+  ticket-bot:
+    # For development, you might want to:
+    # - Remove restart policy
+    # - Mount source code volume for hot reloading
+    # - Increase log verbosity
+    # - Expose debug ports if needed
+    
+    # Example: Mount source code for development
+    # volumes:
+    #   - .:/app
+    #   - /app/__pycache__
+    
+    # Uncomment for verbose logging in development
+    # environment:
+    #   LOG_LEVEL: DEBUG

@@ -3,23 +3,36 @@ from collections import deque
 import os
 from telegram.ext import Application
 import json
-from logging_config import logger
+from .logging_config import logger
 import urllib.request
 import requests
 
 MAX_MESSAGES = 500
 BUCKET_URL = os.getenv("BUCKET_URL")
-MESSAGES_META = os.getenv("MESSAGES_META")
+MESSAGES_META = os.getenv("MESSAGES_META", "messages_meta.json")
 
 _store: dict[int, deque] = {}
 _lock = threading.Lock()
 
 
+def _get_data_dir() -> str:
+    """Get the data directory path and ensure it exists."""
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+
+def _get_messages_meta_path() -> str:
+    """Get the full path to the messages metadata file."""
+    return os.path.join(_get_data_dir(), MESSAGES_META)
+
+
 def _load_from_s3() -> dict:
     url = f"{BUCKET_URL}/{MESSAGES_META}"
     try:
-        urllib.request.urlretrieve(url, MESSAGES_META)
-        with open(MESSAGES_META, "r") as f:
+        filepath = _get_messages_meta_path()
+        urllib.request.urlretrieve(url, filepath)
+        with open(filepath, "r") as f:
             return json.load(f)
     except Exception:
         return {}
@@ -28,9 +41,10 @@ def _load_from_s3() -> dict:
 async def s3_load_messages(app: Application) -> None:
     with _lock:
         data = {str(chat_id): list(msgs) for chat_id, msgs in _store.items()}
-    with open(MESSAGES_META, "w") as f:
+    filepath = _get_messages_meta_path()
+    with open(filepath, "w") as f:
         json.dump(data, f)
-    with open(MESSAGES_META, "rb") as f:
+    with open(filepath, "rb") as f:
         raw = f.read()
     requests.put(
         f"{BUCKET_URL}/{MESSAGES_META}",
@@ -43,9 +57,10 @@ async def s3_load_messages(app: Application) -> None:
 def s3_load_messages_sync():
     with _lock:
         data = {str(chat_id): list(msgs) for chat_id, msgs in _store.items()}
-    with open(MESSAGES_META, "w") as f:
+    filepath = _get_messages_meta_path()
+    with open(filepath, "w") as f:
         json.dump(data, f)
-    with open(MESSAGES_META, "rb") as f:
+    with open(filepath, "rb") as f:
         raw = f.read()
     requests.put(
         f"{BUCKET_URL}/{MESSAGES_META}",

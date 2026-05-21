@@ -1,0 +1,11 @@
+{{- if .Values.configMap.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ticket-bot.fullname" . }}-config
+  labels:
+    {{- include "ticket-bot.labels" . | nindent 4 }}
+data:
+  LOG_LEVEL: {{ .Values.env.LOG_LEVEL | quote }}
+  HEALTH_CHECK_PORT: {{ .Values.env.HEALTH_CHECK_PORT | quote }}
+{{- end }}

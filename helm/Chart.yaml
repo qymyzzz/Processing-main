@@ -1,0 +1,17 @@
+apiVersion: v2
+name: ticket-bot
+description: A Helm chart for Kubernetes deployment of Ticket Management Bot
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - telegram
+  - bot
+  - ticket-management
+  - ai-classification
+home: https://github.com/qymyzzz/Processing-main
+sources:
+  - https://github.com/qymyzzz/Processing-main
+maintainers:
+  - name: qymyzzz
+    email: sagyn813sagyn@gmail.com

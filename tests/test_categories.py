@@ -4,9 +4,7 @@ import pytest
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from categories import CATEGORIES, CAT_KEYS
+from app.categories import CATEGORIES, CAT_KEYS
 
 
 class TestCategories:

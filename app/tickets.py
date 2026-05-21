@@ -7,12 +7,12 @@ from collections import deque
 from dotenv import load_dotenv
 from google import genai
 
-from categories import CAT_KEYS, CATEGORIES
-from logging_config import logger
-from message_history import get_messages
-from rules import RULES
-from sanitize import sanitize
-from ticket_store import add_ticket, get_ticket, get_tickets, resolve_ticket
+from .categories import CAT_KEYS, CATEGORIES
+from .logging_config import logger
+from .message_history import get_messages
+from .rules import RULES
+from .sanitize import sanitize
+from .ticket_store import add_ticket, get_ticket, get_tickets, resolve_ticket
 
 load_dotenv()
 

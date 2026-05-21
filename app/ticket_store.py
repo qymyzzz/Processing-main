@@ -11,25 +11,45 @@ import pandas as pd
 import requests
 from telegram.ext import Application
 
-from logging_config import logger
-from message_history import get_messages
+from .logging_config import logger
+from .message_history import get_messages
 
 dotenv.load_dotenv()
 
 BUCKET_URL = os.getenv("BUCKET_URL")
-S3_KEY = os.getenv("S3_KEY")
-TICKETS_META = os.getenv("TICKETS_META")
+S3_KEY = os.getenv("S3_KEY", "tickets.xlsx")
+TICKETS_META = os.getenv("TICKETS_META", "tickets_meta.json")
 
 _tickets: list[dict] = []
 
 _lock = threading.Lock()
 
 
+def _get_data_dir() -> str:
+    """Get the data directory path and ensure it exists."""
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+
+def _get_tickets_meta_path() -> str:
+    """Get the full path to the tickets metadata file."""
+    # print(os.path.join(_get_data_dir(), TICKETS_META), flush=True)
+    return os.path.join(_get_data_dir(), TICKETS_META)
+
+
+def _get_tickets_xlsx_path() -> str:
+    """Get the full path to the tickets Excel file."""
+    # print(os.path.join(_get_data_dir(), S3_KEY), flush=True)
+    return os.path.join(_get_data_dir(), S3_KEY)
+
+
 def load_meta():
     url = f"{BUCKET_URL}/{TICKETS_META}"
     try:
-        urllib.request.urlretrieve(url, TICKETS_META)
-        with open(TICKETS_META, "r") as f:
+        filepath = _get_tickets_meta_path()
+        urllib.request.urlretrieve(url, filepath)
+        with open(filepath, "r") as f:
             return json.load(f)
     except Exception:
         return []
@@ -61,22 +81,24 @@ def _init_excel():
                     }
                     for row in data
                 ]
-                # print(f"Loaded {_tickets} tickets from meta", flush=True)
             logger.info(f"Loaded {len(_tickets)} tickets from meta")
-        urllib.request.urlretrieve(url, S3_KEY)
-        logger.info(f"{S3_KEY} downloaded from S3")
+        try:
+            urllib.request.urlretrieve(url, _get_tickets_xlsx_path())
+            logger.info(f"{S3_KEY} downloaded from S3")
+        except Exception as e:
+            logger.warning(f"Failed to download {S3_KEY} from S3: {e}")
     except Exception as e:
-        logger.error(f"Failed to load {S3_KEY}: {e}")
-        raise
+        logger.error(f"Failed to initialize tickets: {e}")
 
 
 async def s3_load_tickets(app: Application) -> None:
     try:
         with _lock:
             data = _tickets.copy()
-        with open(TICKETS_META, "w") as f:
+        filepath = _get_tickets_meta_path()
+        with open(filepath, "w") as f:
             json.dump(data, f, default=str)
-        with open(TICKETS_META, "rb") as f:
+        with open(filepath, "rb") as f:
             raw = f.read()
         requests.put(
             f"{BUCKET_URL}/{TICKETS_META}",
@@ -85,7 +107,8 @@ async def s3_load_tickets(app: Application) -> None:
         )
         logger.info("Saved tickets meta to S3")
 
-        with open("tickets.xlsx", "rb") as f:
+        filepath = _get_tickets_xlsx_path()
+        with open(filepath, "rb") as f:
             data = f.read()
         resp = requests.put(
             f"{BUCKET_URL}/{S3_KEY}",
@@ -106,9 +129,10 @@ def s3_load_tickets_sync():
     try:
         with _lock:
             data = _tickets.copy()
-        with open(TICKETS_META, "w") as f:
+        filepath = _get_tickets_meta_path()
+        with open(filepath, "w") as f:
             json.dump(data, f, default=str)
-        with open(TICKETS_META, "rb") as f:
+        with open(filepath, "rb") as f:
             raw = f.read()
         requests.put(
             f"{BUCKET_URL}/{TICKETS_META}",
@@ -117,7 +141,8 @@ def s3_load_tickets_sync():
         )
         logger.info("Saved tickets meta to S3")
 
-        with open("tickets.xlsx", "rb") as f:
+        filepath = _get_tickets_xlsx_path()
+        with open(filepath, "rb") as f:
             data = f.read()
         resp = requests.put(
             f"{BUCKET_URL}/{S3_KEY}",
@@ -166,7 +191,22 @@ def add_ticket(
             "resolved": False,
             "assignee": assignee or [],
         }
-        df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
+        try:
+            df = pd.read_excel(_get_tickets_xlsx_path(), sheet_name="tickets")
+        except Exception:
+            # File doesn't exist or is invalid, create empty dataframe
+            df = pd.DataFrame(
+                columns=[
+                    "Тикет",
+                    "Чат",
+                    "Отправитель",
+                    "Сообщение",
+                    "Категория",
+                    "Дата",
+                    "Ответственный",
+                    "Статус",
+                ]
+            )
         new_row = pd.DataFrame(
             [
                 {
@@ -182,7 +222,7 @@ def add_ticket(
             ]
         )
         df = pd.concat([df, new_row], ignore_index=True)
-        df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
+        df.to_excel(_get_tickets_xlsx_path(), sheet_name="tickets", index=False)
         _tickets.append(ticket)
     return ticket
 
@@ -190,9 +230,14 @@ def add_ticket(
 def add_assignee(ticket_id: int, assignee: str) -> bool:
     """Add an assignee to a ticket. Returns True if found, False otherwise."""
     with _lock:
-        df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
+        filepath = _get_tickets_xlsx_path()
+        try:
+            df = pd.read_excel(filepath, sheet_name="tickets")
+        except Exception:
+            # File doesn't exist, return False
+            return False
         df.loc[df["Тикет"] == ticket_id, "Ответственный"] = assignee
-        df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
+        df.to_excel(filepath, sheet_name="tickets", index=False)
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
                 if ticket.get("assignee") is None:
@@ -232,9 +277,14 @@ def get_tickets(
 def resolve_ticket(ticket_id: int) -> bool:
     """Mark a ticket as resolved. Returns True if found, False otherwise."""
     with _lock:
-        df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
+        filepath = _get_tickets_xlsx_path()
+        try:
+            df = pd.read_excel(filepath, sheet_name="tickets")
+        except Exception:
+            # File doesn't exist, return False
+            return False
         df.loc[df["Тикет"] == ticket_id, "Статус"] = "Закрыт"
-        df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
+        df.to_excel(filepath, sheet_name="tickets", index=False)
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
                 ticket["resolved"] = True
@@ -245,9 +295,14 @@ def resolve_ticket(ticket_id: int) -> bool:
 def unresolve_ticket(ticket_id: int) -> bool:
     """Unmark a ticket as resolved. Returns False if found, True otherwise."""
     with _lock:
-        df = pd.read_excel("tickets.xlsx", sheet_name="tickets")
+        filepath = _get_tickets_xlsx_path()
+        try:
+            df = pd.read_excel(filepath, sheet_name="tickets")
+        except Exception:
+            # File doesn't exist, return False
+            return False
         df.loc[df["Тикет"] == ticket_id, "Статус"] = "Открыт"
-        df.to_excel("tickets.xlsx", sheet_name="tickets", index=False)
+        df.to_excel(filepath, sheet_name="tickets", index=False)
         for ticket in _tickets:
             if ticket["ticket_id"] == ticket_id:
                 ticket["resolved"] = False

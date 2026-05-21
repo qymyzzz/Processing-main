@@ -5,9 +5,8 @@ from unittest.mock import patch, MagicMock
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from classifier import classify_rule_based, classify_gemini
+from app.classifier import classify_rule_based, classify_gemini
+import app.classifier as classifier
 
 
 class TestClassifyRuleBased:
@@ -59,7 +58,7 @@ class TestClassifyRuleBased:
 class TestClassifyGemini:
     """Tests for Gemini-based classification."""
 
-    @patch("classifier.gemini_client")
+    @patch("app.classifier.gemini_client")
     def test_classify_gemini_success(self, mock_client):
         """Test successful Gemini classification."""
         mock_response = MagicMock()
@@ -69,7 +68,7 @@ class TestClassifyGemini:
         result = classify_gemini("System is down")
         assert result == "Инциденты"
 
-    @patch("classifier.gemini_client")
+    @patch("app.classifier.gemini_client")
     def test_classify_gemini_partial_match(self, mock_client):
         """Test Gemini classification with partial category match."""
         mock_response = MagicMock()
@@ -79,7 +78,7 @@ class TestClassifyGemini:
         result = classify_gemini("Something broke")
         assert result == "Инциденты"
 
-    @patch("classifier.gemini_client")
+    @patch("app.classifier.gemini_client")
     def test_classify_gemini_invalid_response(self, mock_client):
         """Test Gemini classification with invalid response."""
         mock_response = MagicMock()
@@ -89,7 +88,7 @@ class TestClassifyGemini:
         result = classify_gemini("Some issue")
         assert result == ""
 
-    @patch("classifier.gemini_client")
+    @patch("app.classifier.gemini_client")
     def test_classify_gemini_api_error(self, mock_client):
         """Test Gemini classification with API error."""
         mock_client.models.generate_content.side_effect = Exception("API Error")
@@ -97,7 +96,7 @@ class TestClassifyGemini:
         result = classify_gemini("Some issue")
         assert result == ""
 
-    @patch("classifier.gemini_client")
+    @patch("app.classifier.gemini_client")
     def test_classify_gemini_whitespace_stripping(self, mock_client):
         """Test that Gemini response whitespace is stripped."""
         mock_response = MagicMock()
@@ -107,8 +106,8 @@ class TestClassifyGemini:
         result = classify_gemini("API integration issue")
         assert result == "Интеграции"
 
-    @patch("classifier.sanitize")
-    @patch("classifier.gemini_client")
+    @patch("app.classifier.sanitize")
+    @patch("app.classifier.gemini_client")
     def test_classify_gemini_sanitizes_input(self, mock_client, mock_sanitize):
         """Test that text is sanitized before sending to Gemini."""
         mock_sanitize.return_value = "Sanitized text"

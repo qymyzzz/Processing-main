@@ -4,8 +4,8 @@ import os
 from dotenv import load_dotenv
 from telegram.ext import Application
 
-from utils import escape_md
-from ticket_store import get_tickets
+from .utils import escape_md
+from .ticket_store import get_tickets
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ async def send_unresolved_reminder(app: Application) -> None:
 
     lines = [
         "🔔 *Напоминание об открытых тикетах*",
-        f"Всего не закрыто: *{len(tickets)}*",
+        f"Всего не закрыто: *{escape_md(str(len(tickets)))}*",
         "",
     ]
 
@@ -41,10 +41,10 @@ async def send_unresolved_reminder(app: Application) -> None:
         preview = t["text"][:120] + ("…" if len(t["text"]) > 120 else "")
 
         lines += [
-            f"🎫 *Тикет #{t['ticket_id']}*",
-            f"👤 {t['sender']}  |  🏷 {category}  |  🕐 {ts}",
-            f"💬 _{preview}_",
-            f"📌 Чат: {t['chat_title']}",
+            f"🎫 *Тикет #{escape_md(str(t['ticket_id']))}*",
+            f"👤 {escape_md(t['sender'])}  |  🏷 {escape_md(category)}  |  🕐 {escape_md(ts)}",
+            f"💬 _{escape_md(preview)}_",
+            f"📌 Чат: {escape_md(t['chat_title'])}",
             "",
         ]
 

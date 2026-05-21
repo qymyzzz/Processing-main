@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  ticket-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ticket-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET}
+      BUCKET_URL: ${BUCKET_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SUPPORT_IDS: ${SUPPORT_IDS:-}
+      DUTY_IDS: ${DUTY_IDS:-}
+      REMINDER_INTERVAL: ${REMINDER_INTERVAL:-3000}
+      S3_SYNC_INTERVAL_MINUTES: ${S3_SYNC_INTERVAL_MINUTES:-1}
+      TICKETS_META: ${TICKETS_META:-tickets_meta.json}
+      MESSAGES_META: ${MESSAGES_META:-messages_meta.json}
+      S3_KEY: ${S3_KEY:-tickets.xlsx}
+      USE_WEBHOOK: ${USE_WEBHOOK:-0}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      WEBHOOK_PATH: ${WEBHOOK_PATH:-/webhook}
+      WEBHOOK_PORT: ${WEBHOOK_PORT:-8443}
+      WEBHOOK_HOST: ${WEBHOOK_HOST:-0.0.0.0}
+      WEBHOOK_SSL_CERT: ${WEBHOOK_SSL_CERT:-}
+      WEBHOOK_SSL_KEY: ${WEBHOOK_SSL_KEY:-}
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - bot-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ticket-bot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  bot-data:
+    driver: local
+
+networks:
+  ticket-bot-network:
+    driver: bridge

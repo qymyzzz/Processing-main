@@ -1,7 +1,7 @@
 from telegram import Update
 
-from utils import escape_md
-from ticket_store import get_tickets
+from .utils import escape_md
+from .ticket_store import get_tickets
 
 
 async def send_ticket_list(update: Update, tickets: list) -> None:
@@ -14,7 +14,7 @@ async def send_ticket_list(update: Update, tickets: list) -> None:
     chat_title = tickets[0]["chat_title"]
 
     lines = [
-        f"📋 *Все тикеты — {chat_title}*",
+        f"📋 *Все тикеты — {escape_md(chat_title)}*",
         f"Всего: *{len(open_tickets)}* открытых тикетов",
     ]
 
@@ -53,12 +53,12 @@ def _format_ticket(t: dict) -> list[str]:
 
     block = [
         "",
-        f"🎫 *Тикет #{t['ticket_id']}*",
-        f"👤 *От:* {t['sender']}",
-        f"🕐 *Время:* {ts}",
-        f"🏷 *Категория:* {category}",
+        f"🎫 *Тикет \\#{escape_md(str(t['ticket_id']))}*",
+        f"👤 *От:* {escape_md(t['sender'])}",
+        f"🕐 *Время:* {escape_md(ts)}",
+        f"🏷 *Категория:* {escape_md(category)}",
         f"💬 *Сообщение:*",
-        f"_{text_preview}_",
+        f"_{escape_md(text_preview)}_",
     ]
 
     if t.get("reply_to"):
@@ -66,7 +66,7 @@ def _format_ticket(t: dict) -> list[str]:
         reply_preview = reply.get("text", "")[:80] + (
             "…" if len(reply.get("text", "")) > 80 else ""
         )
-        block.append(f"↩️ *Ответ на:* _{reply_preview}_")
+        block.append(f"↩️ *Ответ на:* _{escape_md(reply_preview)}_")
 
     return block
 

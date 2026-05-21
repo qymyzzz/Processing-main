@@ -2,7 +2,7 @@ import io
 import os
 from datetime import datetime
 
-from utils import escape_md
+from app.utils import escape_md
 from dotenv import load_dotenv
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from ticket_store import get_tickets
+from app.ticket_store import get_tickets
 
 load_dotenv()
 
@@ -245,10 +245,10 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         document=io.BytesIO(excel_bytes),
         filename=filename,
         caption=(
-            f"📊 *Отчёт по тикетам*\n"
-            f"Всего: *{len(tickets)}* · "
-            f"Открытых: *{sum(1 for t in tickets if not t['resolved'])}* · "
-            f"Закрытых: *{sum(1 for t in tickets if t['resolved'])}*"
+            f"📊 Отчёт по тикетам\n"
+            f"Всего: {escape_md(str(len(tickets)))} "
+            f"Открытых: {escape_md(str(sum(1 for t in tickets if not t['resolved'])))} "
+            f"Закрытых: {escape_md(str(sum(1 for t in tickets if t['resolved'])))}"
         ),
         parse_mode="MarkdownV2",
     )

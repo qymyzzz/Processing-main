@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from send_tickets_group import send_ticket_list
-from ticket_store import get_ticket, resolve_ticket
+from app.send_tickets_group import send_ticket_list
+from app.ticket_store import get_ticket, resolve_ticket
 
 load_dotenv()
 

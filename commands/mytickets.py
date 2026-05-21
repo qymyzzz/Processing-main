@@ -7,11 +7,11 @@ from itertools import groupby
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ContextTypes
-from utils import escape_md
+from app.utils import escape_md
 
 from commands.start import SUPPORT_IDS
-from send_tickets_group import send_ticket_list
-from ticket_store import get_tickets, get_tickets_by_date_range
+from app.send_tickets_group import send_ticket_list
+from app.ticket_store import get_tickets, get_tickets_by_date_range
 
 load_dotenv()
 
@@ -34,7 +34,7 @@ async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         or f"user{user_id}"
     )
     if get_role(user_id=user_id) != "support":
-        await update.message.reply_text("⚠️ У вас нет доступа к этой команде.")
+        await update.message.reply_text("⚠️ У вас нет доступа к этой команде\\.")
         return
     # print(chat_type, args, user_id, flush=True)
     if args:
@@ -52,9 +52,9 @@ async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
         except ValueError:
             await update.message.reply_text(
-                "⚠️ Неверный формат даты.\n"
-                "Используйте: `/tickets ДД.ММ.ГГГГ-ДД.ММ.ГГГГ`\n"
-                "Пример: `/tickets 01.03.2026-29.03.2026`",
+                "⚠️ Неверный формат даты\\.\n"
+                "Используйте: `/tickets ДД\\.ММ\\.ГГГГ\\-ДД\\.ММ\\.ГГГГ`\n"
+                "Пример: `/tickets 01\\.03\\.2026\\-29\\.03\\.2026`",
                 parse_mode="MarkdownV2",
             )
             return
@@ -67,7 +67,7 @@ async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         if not tickets:
             await update.message.reply_text(
-                f"📭 Тикетов за период *{part_from} — {part_to}* не найдено.",
+                f"📭 Тикетов за период *{escape_md(part_from)} — {escape_md(part_to)}* не найдено\\.",
                 parse_mode="MarkdownV2",
             )
             return
@@ -84,7 +84,7 @@ async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # print(user_username, flush=True)
         tickets = get_tickets(assignee=user_username)
         if not tickets:
-            await update.message.reply_text("📭 Тикетов пока нет.")
+            await update.message.reply_text("📭 Тикетов пока нет\\.")
             return
         chats = []
         for t in tickets:

@@ -7,9 +7,7 @@ from unittest.mock import patch, MagicMock, mock_open
 from datetime import datetime, timezone, timedelta
 import json
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import ticket_store
+import app.ticket_store as ticket_store
 
 
 class TestTicketStore:
@@ -24,8 +22,8 @@ class TestTicketStore:
 
     def test_add_ticket_basic(self):
         """Test adding a basic ticket."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket = ticket_store.add_ticket(
@@ -46,8 +44,8 @@ class TestTicketStore:
 
     def test_add_ticket_increments_id(self):
         """Test that ticket IDs increment."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket1 = ticket_store.add_ticket(
@@ -77,8 +75,8 @@ class TestTicketStore:
 
     def test_get_tickets_all(self):
         """Test retrieving all tickets."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket_store.add_ticket(
@@ -108,8 +106,8 @@ class TestTicketStore:
 
     def test_get_tickets_by_chat_id(self):
         """Test filtering tickets by chat ID."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket_store.add_ticket(
@@ -140,8 +138,8 @@ class TestTicketStore:
 
     def test_get_tickets_by_sender(self):
         """Test filtering tickets by sender."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket_store.add_ticket(
@@ -172,8 +170,8 @@ class TestTicketStore:
 
     def test_get_tickets_by_resolved_status(self):
         """Test filtering tickets by resolved status."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket = ticket_store.add_ticket(
@@ -198,8 +196,8 @@ class TestTicketStore:
 
     def test_get_ticket_single(self):
         """Test retrieving a single ticket by ID."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             added_ticket = ticket_store.add_ticket(
@@ -226,8 +224,8 @@ class TestTicketStore:
 
     def test_resolve_ticket(self):
         """Test resolving a ticket."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket = ticket_store.add_ticket(
@@ -249,7 +247,7 @@ class TestTicketStore:
 
     def test_resolve_ticket_not_found(self):
         """Test resolving a non-existent ticket."""
-        with patch("ticket_store.pd.read_excel"), patch.object(
+        with patch("app.ticket_store.pd.read_excel"), patch.object(
             ticket_store.pd.DataFrame, "to_excel"
         ):
             result = ticket_store.resolve_ticket(999)
@@ -257,8 +255,8 @@ class TestTicketStore:
 
     def test_unresolve_ticket(self):
         """Test unresolving a ticket."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket = ticket_store.add_ticket(
@@ -281,8 +279,8 @@ class TestTicketStore:
 
     def test_add_assignee(self):
         """Test adding an assignee to a ticket."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket = ticket_store.add_ticket(
@@ -304,8 +302,8 @@ class TestTicketStore:
 
     def test_add_assignee_multiple(self):
         """Test adding multiple assignees to a ticket."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket = ticket_store.add_ticket(
@@ -329,8 +327,8 @@ class TestTicketStore:
 
     def test_get_tickets_by_assignee(self):
         """Test filtering tickets by assignee."""
-        with patch("ticket_store.pd.read_excel"), patch(
-            "ticket_store.pd.concat"
+        with patch("app.ticket_store.pd.read_excel"), patch(
+            "app.ticket_store.pd.concat"
         ), patch.object(ticket_store.pd.DataFrame, "to_excel"):
 
             ticket1 = ticket_store.add_ticket(

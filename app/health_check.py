@@ -4,7 +4,7 @@ import os
 import dotenv
 from aiohttp import web
 
-from logging_config import logger
+from .logging_config import logger
 
 dotenv.load_dotenv()
 

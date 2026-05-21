@@ -4,9 +4,9 @@ import sys
 import dotenv
 import requests
 
-from logging_config import logger
-from ticket_store import s3_load_tickets_sync
-from message_history import s3_load_messages_sync
+from .logging_config import logger
+from .ticket_store import s3_load_tickets_sync
+from .message_history import s3_load_messages_sync
 
 dotenv.load_dotenv()
 
