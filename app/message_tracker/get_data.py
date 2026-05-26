@@ -8,7 +8,9 @@ STORAGE_FILE = os.getenv("STORAGE_FILE")
 
 
 def _get_data_dir() -> str:
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    data_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
+    )
     os.makedirs(data_dir, exist_ok=True)
     return data_dir
 

@@ -4,7 +4,7 @@ import pytest
 import sys
 import os
 
-from app.categories import CATEGORIES, CAT_KEYS
+from app.ticket_system.categories import CATEGORIES, CAT_KEYS
 
 
 class TestCategories:

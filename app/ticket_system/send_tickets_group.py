@@ -1,6 +1,6 @@
 from telegram import Update
 
-from .utils import escape_md
+from ..utils import escape_md
 from .ticket_store import get_tickets
 
 

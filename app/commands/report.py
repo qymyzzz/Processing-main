@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from app.ticket_store import get_tickets
+from app.ticket_system.ticket_store import get_tickets
 
 load_dotenv()
 

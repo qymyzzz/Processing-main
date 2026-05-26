@@ -9,9 +9,9 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from app.utils import escape_md
 
-from commands.start import SUPPORT_IDS
-from app.send_tickets_group import send_ticket_list
-from app.ticket_store import get_tickets, get_tickets_by_date_range
+from app.commands.start import SUPPORT_IDS
+from app.ticket_system.send_tickets_group import send_ticket_list
+from app.ticket_system.ticket_store import get_tickets, get_tickets_by_date_range
 
 load_dotenv()
 
@@ -25,17 +25,19 @@ def get_role(user_id: int) -> str:
     return "client"
 
 
-async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def tickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Поведение (будет реализовано):
+      Групповой чат, без аргументов → открытые тикеты по этому чату (любая роль)
+      Личный чат, без аргументов   → открытые тикеты пользователя
+                                      для поддержки: ВСЕ открытые тикеты по всем чатам
+      С аргументом-периодом        → тикеты за период, все статусы (любая роль)
+    """
+    chat_type = update.effective_chat.type  # 'private' | 'group' | 'supergroup'
     args = context.args or []
     user_id = update.effective_user.id
-    user_username = (
-        update.message.from_user.username
-        or update.message.from_user.full_name
-        or f"user{user_id}"
-    )
-    if get_role(user_id=user_id) != "support":
-        await update.message.reply_text("⚠️ У вас нет доступа к этой команде\\.")
-        return
+    user_username = update.message.from_user.username
+
     # print(chat_type, args, user_id, flush=True)
     if args:
         if not context.args:
@@ -58,12 +60,17 @@ async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 parse_mode="MarkdownV2",
             )
             return
-        tickets = get_tickets_by_date_range(
-            date_from=date_from,
-            date_to=date_to,
-            resolved=False,
-            assignee=user_username,
-        )
+        if get_role(user_id) == "support":
+            tickets = get_tickets_by_date_range(
+                date_from=date_from, date_to=date_to, resolved=None
+            )
+        else:
+            tickets = get_tickets_by_date_range(
+                date_from=date_from,
+                date_to=date_to,
+                resolved=None,
+                sender=user_username,
+            )
 
         if not tickets:
             await update.message.reply_text(
@@ -80,9 +87,21 @@ async def mytickets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         for chat_id in chats:
             chat_tickets = [t for t in tickets if t["chat_id"] == chat_id]
             await send_ticket_list(update, tickets=chat_tickets)
+    elif get_role(user_id) == "support":
+        tickets = get_tickets()
+        if not tickets:
+            await update.message.reply_text("📭 Тикетов пока нет\\.")
+            return
+        chats = []
+        for t in tickets:
+            if t["chat_id"] not in chats:
+                chats.append(t["chat_id"])
+
+        for chat_id in chats:
+            chat_tickets = [t for t in tickets if t["chat_id"] == chat_id]
+            await send_ticket_list(update, tickets=chat_tickets)
     else:
-        # print(user_username, flush=True)
-        tickets = get_tickets(assignee=user_username)
+        tickets = get_tickets(sender=user_username)
         if not tickets:
             await update.message.reply_text("📭 Тикетов пока нет\\.")
             return

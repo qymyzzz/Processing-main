@@ -8,8 +8,8 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from app.utils import escape_md
 
-from app.send_tickets_group import send_ticket_list
-from app.ticket_store import get_ticket, resolve_ticket
+from app.ticket_system.send_tickets_group import send_ticket_list
+from app.ticket_system.ticket_store import get_ticket, resolve_ticket
 
 load_dotenv()
 

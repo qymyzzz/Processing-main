@@ -4,10 +4,13 @@ import os
 from dotenv import load_dotenv
 from telegram.ext import Application
 import json
+from ..logging_config import logger
+import urllib.request
+import requests
 
 from .get_data import _get_last_messages_path
 
-from .logging_config import logger
+
 import urllib.request
 import requests
 

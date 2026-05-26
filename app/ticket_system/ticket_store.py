@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 from telegram.ext import Application
 
-from .logging_config import logger
+from ..logging_config import logger
 from .message_history import get_messages
 
 dotenv.load_dotenv()
@@ -27,7 +27,9 @@ _lock = threading.Lock()
 
 def _get_data_dir() -> str:
     """Get the data directory path and ensure it exists."""
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    data_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
+    )
     os.makedirs(data_dir, exist_ok=True)
     return data_dir
 

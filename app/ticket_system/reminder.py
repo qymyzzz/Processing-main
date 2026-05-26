@@ -1,13 +1,11 @@
-import logging
+from ..logging_config import logger
 import os
 
 from dotenv import load_dotenv
 from telegram.ext import Application
 
-from .utils import escape_md
+from ..utils import escape_md
 from .ticket_store import get_tickets
-
-logger = logging.getLogger(__name__)
 
 load_dotenv()
 

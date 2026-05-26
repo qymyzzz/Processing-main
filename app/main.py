@@ -23,27 +23,36 @@ from telegram.ext import (
     filters,
 )
 
-from .categories import CAT_KEYS, CATEGORIES
-from .classifier import classify_gemini, classify_rule_based
-from commands.close import close
-from commands.duty import duty
-from commands.mytickets import mytickets
-from commands.report import _build_excel, report
-from commands.start import start
-from commands.tickets import tickets
+from .ticket_system.categories import CAT_KEYS, CATEGORIES
+from .ticket_system.classifier import classify_gemini, classify_rule_based
+from .message_tracker.methods import (
+    init_last_messages,
+    s3_load_last_messages,
+    cmd_latest,
+    load_data,
+    save_data,
+    get_sorted_messages,
+)
+from app.commands.close import close
+from app.commands.duty import duty
+from app.commands.mytickets import mytickets
+from app.commands.report import _build_excel, report
+from app.commands.start import start
+from app.commands.tickets import tickets
 from .logging_config import logger
-from .message_history import (
+from .ticket_system.message_history import (
     _init_messages,
     add_message,
     get_messages,
     s3_load_messages,
 )
-from .reminder import send_unresolved_reminder
+from .ticket_system.reminder import send_unresolved_reminder
 from .sanitize import sanitize
 from .utils import escape_md
-from .send_tickets_group import send_ticket_list
+from .ticket_system.send_tickets_group import send_ticket_list
+from .s3_sync import s3_load_everything
 from .shutdown import handle_shutdown
-from .ticket_store import (
+from .ticket_system.ticket_store import (
     _init_excel,
     add_assignee,
     add_ticket,
@@ -55,7 +64,7 @@ from .ticket_store import (
     s3_load_tickets,
     unresolve_ticket,
 )
-from .tickets import flush_retry_queue, generate_new_ticket
+from .ticket_system.tickets import flush_retry_queue, generate_new_ticket
 
 load_dotenv()
 
@@ -267,6 +276,45 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 "reply_to": reply_to,
             }
         )
+        data = load_data()
+        tz_utc5 = timezone(timedelta(hours=5))
+        msg_time = message.date.astimezone(tz_utc5)
+
+        MONTHS_RU = {
+            1: "января",
+            2: "февраля",
+            3: "марта",
+            4: "апреля",
+            5: "мая",
+            6: "июня",
+            7: "июля",
+            8: "августа",
+            9: "сентября",
+            10: "октября",
+            11: "ноября",
+            12: "декабря",
+        }
+        msg_time_str = f"{msg_time.day} {MONTHS_RU[msg_time.month]} {msg_time.year}, {msg_time.strftime('%H:%M')}"
+        data[chat_id] = {
+            "chat_id": chat_id,
+            "chat_title": chat_title or "(unknown group)",
+            "user_id": user_id,
+            "username": user.username or "",
+            "full_name": user.full_name or "",
+            "message_id": message_id,
+            "text": text,
+            "timestamp": msg_time_str,
+            "timestamp_raw": msg_time.isoformat(),
+        }
+        save_data(data)
+
+        logger.info(
+            "Сохранено сообщение от пользователя %s (%s) в группе '%s' в %s",
+            user.id,
+            user.full_name,
+            chat.title,
+            msg_time_str,
+        )
         if text == "/tickets":
             tickets = get_tickets(chat_id=chat_id)
             await send_ticket_list(update, tickets)
@@ -355,6 +403,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def main():
     _init_excel()
     _init_messages()
+    init_last_messages()
     retry = threading.Thread(target=retry_worker, daemon=True)
     retry.start()
     worker = threading.Thread(target=console_worker, daemon=True)
@@ -367,10 +416,10 @@ def main():
     app.add_handler(CommandHandler("report", report))
     app.add_handler(CommandHandler("duty", duty))
     app.add_handler(CommandHandler("mytickets", mytickets))
+    app.add_handler(CommandHandler("latest", cmd_latest))
     logger.info("Bot is running — press Ctrl+C to stop.")
     app.job_queue.run_repeating(send_unresolved_reminder, interval=REMINDER_INTERVAL)
-    app.job_queue.run_repeating(s3_load_tickets, interval=S3_SYNC_INTERVAL_SECONDS)
-    app.job_queue.run_repeating(s3_load_messages, interval=S3_SYNC_INTERVAL_SECONDS)
+    app.job_queue.run_repeating(s3_load_everything, interval=S3_SYNC_INTERVAL_SECONDS)
 
     use_webhook = int(os.getenv("USE_WEBHOOK", 0))
     # print(f"Using webhook: {use_webhook}")

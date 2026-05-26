@@ -3,7 +3,7 @@ from collections import deque
 import os
 from telegram.ext import Application
 import json
-from .logging_config import logger
+from ..logging_config import logger
 import urllib.request
 import requests
 
@@ -17,7 +17,9 @@ _lock = threading.Lock()
 
 def _get_data_dir() -> str:
     """Get the data directory path and ensure it exists."""
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    data_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
+    )
     os.makedirs(data_dir, exist_ok=True)
     return data_dir
 
