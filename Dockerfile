@@ -5,7 +5,7 @@ WORKDIR /tmp
 
 # Copy requirements and install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Stage 2: Runtime
 FROM python:3.13.7-slim
@@ -17,9 +17,7 @@ LABEL version="1.0.0"
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PATH=/home/botuser/.local/bin:$PATH
+    PYTHONDONTWRITEBYTECODE=1
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,17 +25,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN useradd -m -u 1000 botuser
+RUN useradd -m -u 10001 botuser
 
 WORKDIR /app
 
 # Copy Python dependencies from builder
-COPY --from=builder --chown=botuser:botuser /root/.local /home/botuser/.local
+COPY --from=builder /install /usr/local
+
+RUN mkdir -p /app/data && chown -R botuser:botuser /app
 
 # Copy application code
 COPY --chown=botuser:botuser . .
-
-RUN mkdir -p /app/data && chown -R botuser:botuser /app/data
 
 # Switch to non-root user
 USER botuser

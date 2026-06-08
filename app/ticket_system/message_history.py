@@ -1,15 +1,21 @@
-import threading
-from collections import deque
-import os
-from telegram.ext import Application
 import json
-from ..logging_config import logger
+import os
+import threading
 import urllib.request
+from collections import deque
+
+import dotenv
 import requests
+from telegram.ext import Application
+
+from ..logging_config import logger
+
+dotenv.load_dotenv()
+
 
 MAX_MESSAGES = 500
 BUCKET_URL = os.getenv("BUCKET_URL")
-MESSAGES_META = os.getenv("MESSAGES_META", "messages_meta.json")
+MESSAGES_META = os.getenv("MESSAGES_META")
 
 _store: dict[int, deque] = {}
 _lock = threading.Lock()
