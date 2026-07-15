@@ -4,8 +4,8 @@ import threading
 import time
 from collections import deque
 
+import boto3
 from dotenv import load_dotenv
-from google import genai
 
 from ..logging_config import logger
 from ..sanitize import sanitize
@@ -16,8 +16,20 @@ from .ticket_store import add_ticket, get_ticket, get_tickets, resolve_ticket
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+# ---------------------------------------------------------
+# Bedrock API key auth (short-term or long-term).
+# AWS_BEARER_TOKEN_BEDROCK is the env var boto3/Bedrock looks for
+# when using the Bedrock API key feature. Set it in your .env file;
+# we just make sure it's exported into the process environment here.
+# ---------------------------------------------------------
+BEDROCK_API_KEY = os.getenv("AWS_BEARER_TOKEN_BEDROCK")
+if BEDROCK_API_KEY:
+    os.environ["AWS_BEARER_TOKEN_BEDROCK"] = BEDROCK_API_KEY
+
+BEDROCK_REGION = os.getenv("BEDROCK_REGION")
+NOVA_MODEL_ID = "amazon.nova-pro-v1:0"
+
+bedrock_client = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
 
 MAX_RETRIES = 3
 RETRY_DELAYS = [2, 5, 15]
@@ -27,11 +39,39 @@ _retry_queue_lock = threading.Lock()
 
 
 def _call_gemini(prompt: str) -> tuple:
-    response = gemini_client.models.generate_content(
-        model="gemini-3-flash-preview",
-        contents=prompt,
+    """Calls Amazon Nova Pro via Bedrock's converse API.
+
+    Kept the name `_call_gemini` (and the retry/queue helpers below) so the
+    rest of the module and its callers don't need to change.
+    """
+    messages = [
+        {
+            "role": "user",
+            "content": [{"text": prompt}],
+        }
+    ]
+    inference_config = {
+        "maxTokens": 512,
+        "temperature": 0.7,
+        "topP": 0.9,
+    }
+
+    response = bedrock_client.converse(
+        modelId=NOVA_MODEL_ID,
+        messages=messages,
+        inferenceConfig=inference_config,
     )
-    raw = response.text.strip()
+
+    output_message = response["output"]["message"]
+    raw = output_message["content"][0]["text"].strip()
+
+    # Nova occasionally wraps JSON in markdown code fences; strip if present.
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.lower().startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
     parsed = json.loads(raw)
     status = parsed.get("status")
     ticket_id = parsed.get("ticket_id")
@@ -47,12 +87,12 @@ def _call_gemini_with_retry(prompt: str) -> tuple:
         except Exception as e:
             delay = RETRY_DELAYS[attempt]
             logger.warning(
-                f"Gemini error (attempt {attempt + 1}/{MAX_RETRIES}), "
+                f"Bedrock Nova Pro error (attempt {attempt + 1}/{MAX_RETRIES}), "
                 f"retrying in {delay}s: {e}"
             )
             time.sleep(delay)
 
-    logger.error(f"Gemini failed after {MAX_RETRIES} retries, queuing request.")
+    logger.error(f"Bedrock Nova Pro failed after {MAX_RETRIES} retries, queuing request.")
     return None, None
 
 
@@ -62,7 +102,7 @@ def flush_retry_queue():
         _retry_queue.clear()
 
     for prompt in items:
-        logger.info("Retrying queued Gemini request...")
+        logger.info("Retrying queued Bedrock Nova Pro request...")
         _call_gemini_with_retry(prompt)
 
 
